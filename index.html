@@ -1,0 +1,95 @@
+﻿<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Roleplay Archiv</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-head">
+        <h1>Roleplay Archiv</h1>
+        <p>WhatsApp-Chats zum Nachlesen</p>
+      </div>
+
+      <div class="toolbar">
+        <label class="btn file-btn">
+          Chat importieren
+          <input id="chatFileInput" type="file" accept=".txt,.zip" />
+        </label>
+        <button class="btn secondary" id="toggleSidebarBtn" type="button">Chats</button>
+      </div>
+
+      <div class="config">
+        <details>
+          <summary>Cloud-Sync (optional)</summary>
+          <div class="config-grid">
+            <label>
+              Supabase URL
+              <input id="supabaseUrl" type="text" placeholder="https://xyz.supabase.co" />
+            </label>
+            <label>
+              Supabase Anon Key
+              <input id="supabaseKey" type="password" placeholder="eyJ..." />
+            </label>
+            <label>
+              Dein Kürzel
+              <input id="userId" type="text" placeholder="laura" />
+            </label>
+            <label>
+              OneDrive Client ID
+              <input id="oneDriveClientId" type="text" placeholder="Azure App Client ID" />
+            </label>
+            <label>
+              OneDrive Medien-Ordner
+              <input id="oneDriveRootPath" type="text" placeholder="Apps/RoleplayArchivMedia" />
+            </label>
+            <div class="toolbar">
+              <button class="btn secondary" id="oneDriveConnectBtn" type="button">OneDrive verbinden</button>
+              <button class="btn secondary" id="oneDriveDisconnectBtn" type="button">Trennen</button>
+            </div>
+            <p id="oneDriveStatus">OneDrive: nicht verbunden</p>
+            <button class="btn" id="saveConfigBtn" type="button">Config speichern</button>
+          </div>
+        </details>
+      </div>
+
+      <nav class="chat-list" id="chatList"></nav>
+    </aside>
+
+    <main class="chat-view" id="chatView">
+      <header class="chat-header">
+        <div>
+          <h2 id="chatTitle">Kein Chat ausgewählt</h2>
+          <p id="chatMeta">Importiere einen WhatsApp Export (.txt oder .zip)</p>
+        </div>
+        <div class="chat-actions">
+          <button class="btn secondary" id="setMarkerBtn" type="button" disabled>Hier weiterlesen</button>
+          <button class="btn secondary" id="jumpMarkerBtn" type="button" disabled>Zu Marker springen</button>
+        </div>
+      </header>
+
+      <section class="messages" id="messages"></section>
+    </main>
+  </div>
+
+  <template id="messageTemplate">
+    <article class="message-row">
+      <div class="bubble">
+        <p class="sender"></p>
+        <p class="text"></p>
+        <time class="time"></time>
+      </div>
+    </article>
+  </template>
+
+  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@3.27.0/lib/msal-browser.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
