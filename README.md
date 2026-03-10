@@ -13,7 +13,7 @@ Private, mobilefreundliche Archiv-Webseite fuer WhatsApp-Roleplay-Chats.
 
 ## Dateien
 - `index.html` - UI-Struktur
-- `styles.css` - Design und responsive Layout
+- `index.html` - UI-Struktur und eingebettetes Design
 - `app.js` - Import, Parser, Archivlogik, Marker und Export/Import
 
 ## Schnellstart
