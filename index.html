@@ -180,6 +180,10 @@
       backdrop-filter: blur(8px);
     }
 
+    .chat-header-info {
+      min-width: 0;
+    }
+
     .chat-header h2 {
       margin: 0;
       font-size: 1rem;
@@ -194,6 +198,12 @@
     .chat-actions {
       display: flex;
       gap: 8px;
+      flex: 0 0 auto;
+      align-items: flex-start;
+    }
+
+    #toggleSidebarBtn {
+      display: none;
     }
 
     .messages {
@@ -353,16 +363,23 @@
       }
 
       .chat-header {
+        align-items: stretch;
+        flex-direction: column;
         padding-right: 10px;
       }
 
       .chat-actions {
-        flex-direction: column;
+        flex-direction: row;
+        flex-wrap: wrap;
       }
 
       .chat-actions .btn {
         padding: 8px;
         font-size: 0.8rem;
+      }
+
+      #toggleSidebarBtn {
+        display: inline-flex;
       }
     }
   </style>
@@ -385,7 +402,6 @@
           <input id="archiveFileInput" type="file" accept=".json" />
         </label>
         <button class="btn secondary" id="exportArchiveBtn" type="button">Archiv exportieren</button>
-        <button class="btn secondary" id="toggleSidebarBtn" type="button">Chats</button>
       </div>
 
       <nav class="chat-list" id="chatList"></nav>
@@ -393,11 +409,12 @@
 
     <main class="chat-view" id="chatView">
       <header class="chat-header">
-        <div>
-          <h2 id="chatTitle">Kein Chat ausgewählt</h2>
+        <div class="chat-header-info">
+          <h2 id="chatTitle">Kein Chat ausgew&auml;hlt</h2>
           <p id="chatMeta">Importiere einen WhatsApp Export (.txt oder .zip)</p>
         </div>
         <div class="chat-actions">
+          <button class="btn secondary" id="toggleSidebarBtn" type="button">Chats</button>
           <button class="btn secondary" id="jumpMarkerBtn" type="button" disabled>Zu Marker springen</button>
         </div>
       </header>
@@ -637,7 +654,7 @@
       const clean = text.replace(/[\u200e\u200f]/g, '');
       const matches = [
         clean.match(/<(?:Anhang|attached):\s*([^>]+)>/i),
-        clean.match(/(?:\bDatei angeh[aÃ¤]ngt:\s*|\bFile attached:\s*)([^\n]+)/i),
+        clean.match(/(?:\bDatei angeh(?:\u00e4ngt|aengt):\s*|\bFile attached:\s*)([^\n]+)/i),
         clean.match(/\b([A-Z]{3}-\d{8}-WA\d{4}\.[a-z0-9]{3,5})\b/i),
         clean.match(/\b([^\s<>:"/\\|?*]+\.(?:jpe?g|png|gif|webp|bmp|heic|heif))\b/i),
       ];
@@ -654,8 +671,8 @@
     function cleanupMediaMarkerText(text, mediaName) {
       let cleaned = text.replace(/[\u200e\u200f]/g, '');
       cleaned = cleaned.replace(new RegExp(`<\\s*(?:Anhang|attached):\\s*${escapeRegExp(mediaName)}\\s*>`, 'i'), '');
-      cleaned = cleaned.replace(/\((?:Datei angeh[aÃ¤]ngt|File attached)\)/gi, '');
-      cleaned = cleaned.replace(/(?:Datei angeh[aÃ¤]ngt:|File attached:)\s*[^\n]+/gi, '');
+      cleaned = cleaned.replace(/\((?:Datei angeh(?:\u00e4ngt|aengt)|File attached)\)/gi, '');
+      cleaned = cleaned.replace(/(?:Datei angeh(?:\u00e4ngt|aengt):|File attached:)\s*[^\n]+/gi, '');
       cleaned = cleaned.replace(/\b(?:Anhang ausgelassen|Media omitted)\b/gi, '');
       cleaned = cleaned.replace(/^[\s,-]+|[\s,-]+$/g, '');
       return cleaned.trim();
@@ -736,7 +753,7 @@
         const deleteBtn = document.createElement('button');
         deleteBtn.type = 'button';
         deleteBtn.className = 'chat-delete';
-        deleteBtn.textContent = 'LÃ¶schen';
+        deleteBtn.textContent = 'L\u00f6schen';
         deleteBtn.addEventListener('click', () => {
           deleteChat(chat.id).catch(console.error);
         });
@@ -751,7 +768,7 @@
       const chat = state.chats.find((entry) => entry.id === chatId);
       if (!chat) return;
 
-      if (!window.confirm(`Chat "${chat.title}" wirklich lÃ¶schen?`)) {
+      if (!window.confirm(`Chat "${chat.title}" wirklich l\u00f6schen?`)) {
         return;
       }
 
@@ -807,7 +824,7 @@
       ui.messages.innerHTML = '';
 
       if (!chat) {
-        ui.chatTitle.textContent = 'Kein Chat ausgewÃ¤hlt';
+        ui.chatTitle.textContent = 'Kein Chat ausgew\u00e4hlt';
         ui.chatMeta.textContent = 'Importiere einen WhatsApp Export (.txt oder .zip)';
         ui.jumpMarkerBtn.disabled = true;
         return;
