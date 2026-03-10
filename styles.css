@@ -54,6 +54,7 @@ body {
 .toolbar {
   display: flex;
   gap: 8px;
+  flex-wrap: wrap;
 }
 
 .btn {
@@ -89,38 +90,6 @@ body {
   inset: 0;
   opacity: 0;
   cursor: pointer;
-}
-
-.config details {
-  background: #f2f7f5;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  padding: 10px;
-}
-
-.config summary {
-  cursor: pointer;
-  font-weight: 700;
-}
-
-.config-grid {
-  margin-top: 10px;
-  display: grid;
-  gap: 8px;
-}
-
-.config label {
-  display: grid;
-  gap: 5px;
-  color: var(--muted);
-  font-size: 0.9rem;
-}
-
-.config input {
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  padding: 8px;
-  font: inherit;
 }
 
 .chat-list {

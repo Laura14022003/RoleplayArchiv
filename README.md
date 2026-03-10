@@ -1,121 +1,43 @@
-﻿# RoleplayArchiv
+# RoleplayArchiv
 
-Private, mobilefreundliche Archiv-Webseite fuer WhatsApp-Roleplay Chats.
+Private, mobilefreundliche Archiv-Webseite fuer WhatsApp-Roleplay-Chats.
 
 ## Was dieses MVP kann
-- WhatsApp Export (`.txt` oder `.zip`) importieren und als Chat anzeigen
+- WhatsApp-Export (`.txt` oder `.zip`) importieren und als Chat anzeigen
 - Bei `.zip`: Bilder aus dem Export direkt in den Nachrichten anzeigen
-- Bilder werden lokal persistent gespeichert (bleiben nach Reload/Neustart erhalten)
-- Darstellung im WhatsApp-Stil (Nachrichtenblasen links/rechts)
+- Bilder lokal persistent speichern (bleiben nach Reload/Neustart erhalten)
 - Lesemarker pro Chat setzen (`Hier weiterlesen`) und spaeter anspringen
-- Chats wieder loeschen (inkl. Marker und gespeicherter Medien)
-- Funktioniert lokal ohne Server
-- Optional: Cloud-Sync via Supabase, damit ihr beide denselben Stand habt
-- Optional: OneDrive-Medienablage (Bilder aus ZIP werden in OneDrive hochgeladen und wieder geladen)
+- Chats wieder loeschen
+- Komplettes Archiv als JSON exportieren und auf einem anderen Geraet wieder importieren
+- Funktioniert komplett lokal ohne Server, Login oder Zusatzkosten
 
 ## Dateien
-- `index.html` - UI Struktur
+- `index.html` - UI-Struktur
 - `styles.css` - Design und responsive Layout
-- `app.js` - Import, Parser, Archivlogik, Marker, optionaler Supabase Sync
+- `app.js` - Import, Parser, Archivlogik, Marker und Export/Import
 
 ## Schnellstart
 1. Repo oeffnen.
 2. `index.html` im Browser starten.
-3. `Chat importieren` anklicken und WhatsApp Export (`.txt` oder `.zip`) waehlen.
+3. `Chat importieren` anklicken und einen WhatsApp-Export (`.txt` oder `.zip`) waehlen.
 
-Hinweis fuer OneDrive Login:
-- Fuer Microsoft Login sollte die Seite ueber `http://localhost/...` oder `https://...` laufen (nicht `file://`).
+## Einfachster gemeinsamer Weg
+Wenn ihr beide denselben Stand lesen wollt:
 
-## WhatsApp Export erstellen
-1. In WhatsApp Chat oeffnen.
+1. Auf einem Geraet Chats importieren.
+2. `Archiv exportieren` klicken.
+3. Die erzeugte JSON-Datei an das andere Geraet schicken oder in einen geteilten Ordner legen.
+4. Dort `Archiv importieren`.
+
+Das ist komplett kostenlos, aber nicht automatisch live synchronisiert.
+
+## WhatsApp-Export erstellen
+1. In WhatsApp den Chat oeffnen.
 2. `Mehr` -> `Chat exportieren`.
-3. Fuer Bildanzeige `Mit Medien` exportieren (ZIP).
+3. Fuer Bildanzeige `Mit Medien` exportieren (`.zip`).
 4. ZIP oder TXT hier importieren.
-5. Bilder bleiben auf diesem Geraet auch nach Browser-Neustart erhalten.
-6. Fuer ein anderes Geraet muss aktuell weiterhin dort ebenfalls importiert werden (ohne Cloud-Medienablage).
 
-## Cloud-Sync mit Supabase (optional)
-Wenn ihr beide die Seite auf verschiedenen Geraeten nutzt, braucht ihr einen gemeinsamen Cloud-Speicher.
-
-### 1) Supabase Projekt anlegen
-- Neues Projekt erstellen
-- `Project URL` und `anon public key` notieren
-
-### 2) Tabellen erstellen (SQL Editor)
-```sql
-create table if not exists chats (
-  id uuid primary key,
-  title text not null,
-  created_at timestamptz not null default now()
-);
-
-create table if not exists messages (
-  id bigint generated always as identity primary key,
-  chat_id uuid not null references chats(id) on delete cascade,
-  sequence int not null,
-  sender text not null,
-  text text not null,
-  sent_at timestamptz not null,
-  media_name text,
-  media_type text,
-  unique(chat_id, sequence)
-);
-
-create table if not exists markers (
-  chat_id uuid not null references chats(id) on delete cascade,
-  user_id text not null,
-  last_sequence int not null,
-  updated_at timestamptz not null default now(),
-  primary key(chat_id, user_id)
-);
-```
-
-### 3) RLS fuer erstes MVP
-Fuer einen rein privaten Einsatz koennt ihr testweise RLS deaktivieren oder passende Policies setzen.
-
-### 4) In der Webseite eintragen
-Unter `Cloud-Sync (optional)`:
-- Supabase URL
-- Supabase Anon Key
-- Dein Kuerzel (z.B. `laura`)
-
-Dann `Config speichern`.
-
-## OneDrive Medienablage (optional)
-Mit OneDrive werden Bilder aus ZIP-Importen in deinen OneDrive-Ordner hochgeladen.
-
-### 1) Azure App anlegen
-1. Azure Portal -> App registrations -> New registration.
-2. Supported account types: `Personal Microsoft accounts only`.
-3. Redirect URI (Single-page application): deine URL, z.B.
-   - `http://localhost:5500/`
-   - spaeter deine echte Domain.
-4. Nach dem Erstellen die `Application (client) ID` kopieren.
-
-### 2) API Berechtigungen
-In der App unter `API permissions`:
-- `User.Read`
-- `Files.ReadWrite`
-
-### 3) In der Webseite eintragen
-Unter `Cloud-Sync (optional)`:
-- `OneDrive Client ID`
-- `OneDrive Medien-Ordner` (z.B. `Apps/RoleplayArchivMedia`)
-- `Config speichern`
-- `OneDrive verbinden`
-
-### 4) Ablauf
-1. ZIP mit Medien importieren.
-2. Bilder werden lokal gespeichert und, wenn OneDrive verbunden ist, in OneDrive hochgeladen.
-3. Beim spaeteren Oeffnen kann die App Bilder aus OneDrive nachladen.
-
-Hinweise:
-- OneDrive Upload nutzt aktuell die persönliche Drive-Umgebung des verbundenen Accounts.
-- Fuer gemeinsame Nutzung sollten beide Zugriff auf denselben OneDrive-Bereich haben.
-
-## Nächste Ausbaustufen
-- Login (Magic Link) statt Kuerzel
-- Medien-Upload (Bilder, Sprachnachrichten)
+## Naechste Ausbaustufen
 - Volltextsuche ueber alle Roleplays
 - Kapitel/Tags/Favoriten pro Nachricht
-- PDF-Import Pipeline fuer alte Screenshot-Dokumente
+- PDF-Import fuer alte Screenshot-Dokumente

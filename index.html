@@ -22,41 +22,12 @@
           Chat importieren
           <input id="chatFileInput" type="file" accept=".txt,.zip" />
         </label>
+        <label class="btn secondary file-btn">
+          Archiv importieren
+          <input id="archiveFileInput" type="file" accept=".json" />
+        </label>
+        <button class="btn secondary" id="exportArchiveBtn" type="button">Archiv exportieren</button>
         <button class="btn secondary" id="toggleSidebarBtn" type="button">Chats</button>
-      </div>
-
-      <div class="config">
-        <details>
-          <summary>Cloud-Sync (optional)</summary>
-          <div class="config-grid">
-            <label>
-              Supabase URL
-              <input id="supabaseUrl" type="text" placeholder="https://xyz.supabase.co" />
-            </label>
-            <label>
-              Supabase Anon Key
-              <input id="supabaseKey" type="password" placeholder="eyJ..." />
-            </label>
-            <label>
-              Dein Kürzel
-              <input id="userId" type="text" placeholder="laura" />
-            </label>
-            <label>
-              OneDrive Client ID
-              <input id="oneDriveClientId" type="text" placeholder="Azure App Client ID" />
-            </label>
-            <label>
-              OneDrive Medien-Ordner
-              <input id="oneDriveRootPath" type="text" placeholder="Apps/RoleplayArchivMedia" />
-            </label>
-            <div class="toolbar">
-              <button class="btn secondary" id="oneDriveConnectBtn" type="button">OneDrive verbinden</button>
-              <button class="btn secondary" id="oneDriveDisconnectBtn" type="button">Trennen</button>
-            </div>
-            <p id="oneDriveStatus">OneDrive: nicht verbunden</p>
-            <button class="btn" id="saveConfigBtn" type="button">Config speichern</button>
-          </div>
-        </details>
       </div>
 
       <nav class="chat-list" id="chatList"></nav>
@@ -89,7 +60,6 @@
   </template>
 
   <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@3.27.0/lib/msal-browser.min.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
