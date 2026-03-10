@@ -6,15 +6,13 @@ Private, mobilefreundliche Archiv-Webseite fuer WhatsApp-Roleplay-Chats.
 - WhatsApp-Export (`.txt` oder `.zip`) importieren und als Chat anzeigen
 - Bei `.zip`: Bilder aus dem Export direkt in den Nachrichten anzeigen
 - Bilder lokal persistent speichern (bleiben nach Reload/Neustart erhalten)
-- Lesemarker pro Chat setzen (`Hier weiterlesen`) und spaeter anspringen
+- Lesemarker pro Chat per Pin an Nachrichten setzen und spaeter anspringen
 - Chats wieder loeschen
 - Komplettes Archiv als JSON exportieren und auf einem anderen Geraet wieder importieren
 - Funktioniert komplett lokal ohne Server, Login oder Zusatzkosten
 
 ## Dateien
-- `index.html` - UI-Struktur
-- `index.html` - UI-Struktur und eingebettetes Design
-- `app.js` - Import, Parser, Archivlogik, Marker und Export/Import
+- `index.html` - komplette App mit UI, eingebettetem Design und eingebetteter Logik
 
 ## Schnellstart
 1. Repo oeffnen.
