@@ -2,6 +2,7 @@ const storageKey = 'rp-archiv-v1';
 const mediaDbName = 'rp-media-db';
 const mediaStoreName = 'media_assets';
 const mediaDbVersion = 1;
+const markerLongPressMs = 550;
 
 const state = {
   chats: [],
@@ -9,6 +10,8 @@ const state = {
   markerByChat: {},
   sessionMediaByChat: {},
   mediaLoadInFlight: {},
+  markerPressTimer: null,
+  markerPressSeq: null,
 };
 
 const mediaDbPromise = openMediaDb();
@@ -206,7 +209,7 @@ function enrichMessageWithMedia(message, seq, mediaIndex) {
   return {
     ...message,
     seq,
-    text: cleanupMediaMarkerText(message.text, mediaName),
+    text: cleanupMediaDisplayText(message.text, mediaName),
     mediaName,
     mediaType: inferMediaType(mediaName),
     hasMedia: Boolean(resolveMediaUrl(mediaName, mediaIndex)),
@@ -234,13 +237,26 @@ function extractMediaReference(text) {
 }
 
 function cleanupMediaMarkerText(text, mediaName) {
-  let cleaned = text;
+  let cleaned = text.replace(/[\u200e\u200f]/g, '');
   cleaned = cleaned.replace(new RegExp(`<\\s*(?:Anhang|attached):\\s*${escapeRegExp(mediaName)}\\s*>`, 'i'), '');
   cleaned = cleaned.replace(/\((?:Datei angeh[aä]ngt|File attached)\)/gi, '');
   cleaned = cleaned.replace(/(?:Datei angeh[aä]ngt:|File attached:)\s*[^\n]+/gi, '');
   cleaned = cleaned.replace(/\b(?:Anhang ausgelassen|Media omitted)\b/gi, '');
   cleaned = cleaned.replace(/^[\s,-]+|[\s,-]+$/g, '');
   return cleaned.trim();
+}
+
+function cleanupMediaDisplayText(text, mediaName) {
+  const cleaned = cleanupMediaMarkerText(text, mediaName);
+  if (!cleaned) return '';
+
+  return cleaned
+    .replace(/[\u200e\u200f]/g, '')
+    .replace(new RegExp(`^${escapeRegExp(mediaName)}(?:\\s*\\n+|\\s*$)`, 'i'), '')
+    .replace(new RegExp(`(^|[\\s\\n])${escapeRegExp(mediaName)}(?=[\\s\\n]|$)`, 'gi'), '$1')
+    .replace(/\n{3,}/g, '\n\n')
+    .replace(/^[\s,-]+|[\s,-]+$/g, '')
+    .trim();
 }
 
 function inferMediaType(mediaName) {
@@ -294,6 +310,7 @@ function renderChatList() {
       <h3>${escapeHtml(chat.title)}</h3>
       <p>${chat.messages.length} Nachrichten${markerSeq ? ` • Marker bei #${markerSeq}` : ''}</p>
     `;
+    openBtn.querySelector('p').textContent = markerSeq ? `Marker bei #${markerSeq}` : '';
     openBtn.addEventListener('click', async () => {
       await selectChat(chat.id);
       if (window.innerWidth <= 860) {
@@ -404,12 +421,57 @@ function renderSelectedChat() {
     clone.classList.add(msg.sender === me ? 'out' : 'in');
     clone.dataset.seq = String(msg.seq);
     clone.querySelector('.sender').textContent = msg.sender;
-    clone.querySelector('.text').textContent = msg.text || '';
+    renderFormattedMessage(clone.querySelector('.text'), msg.text || '');
     clone.querySelector('.time').textContent = formatTime(msg.sentAt);
+    bindMarkerLongPress(clone, msg.seq);
 
     attachMediaNode(clone.querySelector('.bubble'), chat.id, msg);
     ui.messages.appendChild(clone);
   }
+}
+
+function bindMarkerLongPress(node, seq) {
+  const start = (event) => {
+    if (event.pointerType === 'mouse' && event.button !== 0) return;
+    clearMarkerLongPress();
+    state.markerPressSeq = seq;
+    node.classList.add('pressing');
+    state.markerPressTimer = window.setTimeout(() => {
+      saveMarkerAtMessageSeq(seq);
+      clearMarkerLongPress();
+    }, markerLongPressMs);
+  };
+
+  const cancel = () => {
+    if (state.markerPressSeq === seq) {
+      clearMarkerLongPress();
+    } else {
+      node.classList.remove('pressing');
+    }
+  };
+
+  node.addEventListener('pointerdown', start);
+  node.addEventListener('pointerup', cancel);
+  node.addEventListener('pointerleave', cancel);
+  node.addEventListener('pointercancel', cancel);
+  node.addEventListener('contextmenu', (event) => {
+    if (state.markerPressSeq === seq) {
+      event.preventDefault();
+    }
+  });
+}
+
+function clearMarkerLongPress() {
+  if (state.markerPressTimer) {
+    window.clearTimeout(state.markerPressTimer);
+    state.markerPressTimer = null;
+  }
+
+  for (const row of ui.messages.querySelectorAll('.message-row.pressing')) {
+    row.classList.remove('pressing');
+  }
+
+  state.markerPressSeq = null;
 }
 
 function attachMediaNode(bubbleNode, chatId, msg) {
@@ -421,7 +483,7 @@ function attachMediaNode(bubbleNode, chatId, msg) {
   if (!url) {
     const missing = document.createElement('p');
     missing.className = 'media-missing';
-    missing.textContent = `[Bild: ${msg.mediaName}]`;
+    missing.textContent = '[Bild nicht mehr vorhanden]';
     bubbleNode.insertBefore(missing, bubbleNode.querySelector('.text'));
     return;
   }
@@ -429,9 +491,33 @@ function attachMediaNode(bubbleNode, chatId, msg) {
   const img = document.createElement('img');
   img.className = 'media-image';
   img.src = url;
-  img.alt = msg.mediaName;
+  img.alt = 'Chatbild';
   img.loading = 'lazy';
   bubbleNode.insertBefore(img, bubbleNode.querySelector('.text'));
+}
+
+function renderFormattedMessage(target, text) {
+  target.innerHTML = formatMessageText(text);
+}
+
+function formatMessageText(text) {
+  const codeTokens = [];
+  let html = escapeHtml(text || '');
+
+  html = html.replace(/```([\s\S]+?)```/g, (_, content) => {
+    const token = `__CODE_TOKEN_${codeTokens.length}__`;
+    codeTokens.push(`<span class="text-code">${content}</span>`);
+    return token;
+  });
+
+  html = html.replace(/\*([^*\n]+)\*/g, '<strong>$1</strong>');
+  html = html.replace(/_([^_\n]+)_/g, '<em>$1</em>');
+
+  for (let i = 0; i < codeTokens.length; i += 1) {
+    html = html.replace(`__CODE_TOKEN_${i}__`, codeTokens[i]);
+  }
+
+  return html;
 }
 
 function formatTime(iso) {
@@ -462,6 +548,13 @@ function saveMarkerAtCurrentViewport() {
   }
 
   const seq = Number(best.dataset.seq);
+  saveMarkerAtMessageSeq(seq);
+}
+
+function saveMarkerAtMessageSeq(seq) {
+  const chat = getSelectedChat();
+  if (!chat || !seq) return;
+
   state.markerByChat[chat.id] = {
     seq,
     updatedAt: new Date().toISOString(),
