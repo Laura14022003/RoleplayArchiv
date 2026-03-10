@@ -453,7 +453,9 @@
     const storageKey = 'rp-archiv-v1';
     const mediaDbName = 'rp-media-db';
     const mediaStoreName = 'media_assets';
-    const mediaDbVersion = 1;
+    const appStateStoreName = 'app_state';
+    const appStateRecordId = 'state';
+    const mediaDbVersion = 2;
     const state = {
       chats: [],
       selectedChatId: null,
@@ -485,7 +487,7 @@
     boot().catch(console.error);
 
     async function boot() {
-      loadLocalState();
+      await loadPersistedState();
       bindEvents();
       renderChatList();
       if (state.chats.length > 0) {
@@ -580,7 +582,7 @@
 
     async function addChatToState(chat) {
       state.chats.unshift(chat);
-      persistLocalState();
+      await persistAppState();
       renderChatList();
       await selectChat(chat.id);
     }
@@ -799,7 +801,7 @@
         state.selectedChatId = state.chats[0]?.id || null;
       }
 
-      persistLocalState();
+      await persistAppState();
       renderChatList();
 
       if (state.selectedChatId) {
@@ -868,7 +870,9 @@
         markerBtn.setAttribute('aria-pressed', isMarked ? 'true' : 'false');
         markerBtn.setAttribute('aria-label', isMarked ? 'Marker gesetzt' : 'Marker setzen');
         markerBtn.title = isMarked ? 'Marker gesetzt' : 'Marker setzen';
-        markerBtn.addEventListener('click', () => saveMarkerAtMessageSeq(msg.seq));
+        markerBtn.addEventListener('click', () => {
+          saveMarkerAtMessageSeq(msg.seq).catch(console.error);
+        });
         clone.querySelector('.sender').textContent = msg.sender;
         renderFormattedMessage(clone.querySelector('.text'), msg.text || '');
         clone.querySelector('.time').textContent = formatTime(msg.sentAt);
@@ -932,7 +936,7 @@
       }).format(date);
     }
 
-    function saveMarkerAtMessageSeq(seq) {
+    async function saveMarkerAtMessageSeq(seq) {
       const chat = getSelectedChat();
       if (!chat || !seq) return;
 
@@ -942,7 +946,7 @@
         by: 'local',
       };
 
-      persistLocalState();
+      await persistAppState();
       renderChatList();
       renderSelectedChat();
     }
@@ -982,6 +986,9 @@
           if (!db.objectStoreNames.contains(mediaStoreName)) {
             const store = db.createObjectStore(mediaStoreName, { keyPath: 'id' });
             store.createIndex('chatId', 'chatId', { unique: false });
+          }
+          if (!db.objectStoreNames.contains(appStateStoreName)) {
+            db.createObjectStore(appStateStoreName, { keyPath: 'id' });
           }
         };
 
@@ -1106,25 +1113,98 @@
       });
     }
 
-    function loadLocalState() {
-      const raw = localStorage.getItem(storageKey);
-      if (!raw) return;
+    async function loadPersistedState() {
+      const db = await mediaDbPromise;
+      if (db) {
+        try {
+          const record = await new Promise((resolve, reject) => {
+            const tx = db.transaction(appStateStoreName, 'readonly');
+            const store = tx.objectStore(appStateStoreName);
+            const req = store.get(appStateRecordId);
+            req.onsuccess = () => resolve(req.result || null);
+            req.onerror = () => reject(req.error);
+          });
+
+          if (record?.data) {
+            state.chats = Array.isArray(record.data.chats) ? record.data.chats : [];
+            state.markerByChat = record.data.markerByChat || {};
+            return;
+          }
+
+          const migrated = loadLegacyLocalState();
+          if (migrated.chats.length || Object.keys(migrated.markerByChat).length) {
+            state.chats = migrated.chats;
+            state.markerByChat = migrated.markerByChat;
+            await persistAppState();
+            try {
+              localStorage.removeItem(storageKey);
+            } catch {}
+            return;
+          }
+        } catch (error) {
+          console.error('Persisted state load failed', error);
+        }
+      }
+
+      const fallback = loadLegacyLocalState();
+      state.chats = fallback.chats;
+      state.markerByChat = fallback.markerByChat;
+    }
+
+    function loadLegacyLocalState() {
+      let raw = null;
+      try {
+        raw = localStorage.getItem(storageKey);
+      } catch {
+        return { chats: [], markerByChat: {} };
+      }
+      if (!raw) {
+        return { chats: [], markerByChat: {} };
+      }
 
       try {
         const parsed = JSON.parse(raw);
-        state.chats = Array.isArray(parsed.chats) ? parsed.chats : [];
-        state.markerByChat = parsed.markerByChat || {};
+        return {
+          chats: Array.isArray(parsed.chats) ? parsed.chats : [],
+          markerByChat: parsed.markerByChat || {},
+        };
       } catch {
-        state.chats = [];
-        state.markerByChat = {};
+        return { chats: [], markerByChat: {} };
       }
     }
 
-    function persistLocalState() {
-      localStorage.setItem(storageKey, JSON.stringify({
+    async function persistAppState() {
+      const payload = {
         chats: state.chats,
         markerByChat: state.markerByChat,
-      }));
+      };
+
+      const db = await mediaDbPromise;
+      if (db) {
+        await new Promise((resolve, reject) => {
+          const tx = db.transaction(appStateStoreName, 'readwrite');
+          const store = tx.objectStore(appStateStoreName);
+          store.put({
+            id: appStateRecordId,
+            data: payload,
+            updatedAt: Date.now(),
+          });
+          tx.oncomplete = () => resolve();
+          tx.onerror = () => reject(tx.error);
+          tx.onabort = () => reject(tx.error || new Error('IndexedDB state write aborted'));
+        });
+
+        try {
+          localStorage.removeItem(storageKey);
+        } catch {}
+        return;
+      }
+
+      try {
+        localStorage.setItem(storageKey, JSON.stringify(payload));
+      } catch (error) {
+        throw new Error(`Speichern fehlgeschlagen: ${error.message}`);
+      }
     }
 
     function blobToDataUrl(blob) {
@@ -1194,7 +1274,7 @@
         state.chats = chats;
         state.markerByChat = markerByChat;
         state.selectedChatId = chats[0]?.id || null;
-        persistLocalState();
+        await persistAppState();
         renderChatList();
 
         if (state.selectedChatId) {
