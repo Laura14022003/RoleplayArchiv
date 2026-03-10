@@ -449,6 +449,10 @@
     };
 
     const mediaDbPromise = openMediaDb();
+    const markerIcons = {
+      active: '\u{1F4CC}',
+      inactive: '\u{1F4CD}',
+    };
 
     const ui = {
       chatFileInput: document.getElementById('chatFileInput'),
@@ -845,7 +849,7 @@
         clone.dataset.seq = String(msg.seq);
         const markerBtn = clone.querySelector('.marker-toggle');
         const isMarked = marker?.seq === msg.seq;
-        markerBtn.innerHTML = isMarked ? '&#128204;' : '&#128392;';
+        markerBtn.textContent = isMarked ? markerIcons.active : markerIcons.inactive;
         markerBtn.classList.toggle('active', isMarked);
         markerBtn.setAttribute('aria-pressed', isMarked ? 'true' : 'false');
         markerBtn.setAttribute('aria-label', isMarked ? 'Marker gesetzt' : 'Marker setzen');
