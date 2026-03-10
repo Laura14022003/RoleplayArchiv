@@ -1,14 +1,14 @@
 ﻿:root {
-  --bg: #e8f3ee;
-  --panel: #f9f9f9;
-  --text: #152021;
-  --muted: #5d6f73;
-  --accent: #075e54;
-  --accent-strong: #0b7a6d;
-  --bubble-in: #ffffff;
-  --bubble-out: #d9fdd3;
-  --line: #d3e0db;
-  --shadow: 0 8px 28px rgba(7, 94, 84, 0.1);
+  --bg: #000000;
+  --panel: #0d0d0f;
+  --text: #edf5f2;
+  --muted: #a9bbb6;
+  --accent: #1b8a78;
+  --accent-strong: #27a08d;
+  --bubble-in: #2b2b2f;
+  --bubble-out: #4a161d;
+  --line: #242428;
+  --shadow: 0 12px 32px rgba(0, 0, 0, 0.28);
 }
 
 * {
@@ -19,10 +19,7 @@ body {
   margin: 0;
   font-family: 'Nunito', sans-serif;
   color: var(--text);
-  background:
-    radial-gradient(circle at 10% -20%, #d8efe9 0%, transparent 35%),
-    radial-gradient(circle at 90% 110%, #cae7df 0%, transparent 30%),
-    var(--bg);
+  background: var(--bg);
 }
 
 .app-shell {
@@ -73,8 +70,8 @@ body {
 }
 
 .btn.secondary {
-  background: #dbe9e4;
-  color: #244a46;
+  background: #1c1c20;
+  color: #e2e2e6;
 }
 
 .file-btn {
@@ -101,7 +98,7 @@ body {
 
 .chat-item {
   border: 1px solid var(--line);
-  background: #fff;
+  background: #17171a;
   border-radius: 10px;
   padding: 8px;
   display: grid;
@@ -111,7 +108,7 @@ body {
 }
 
 .chat-item.active {
-  border-color: #8fc6bb;
+  border-color: #6b2a33;
   box-shadow: var(--shadow);
 }
 
@@ -141,21 +138,22 @@ body {
   border-radius: 8px;
   padding: 6px 8px;
   cursor: pointer;
-  background: #ffe5e3;
-  color: #8f2219;
+  background: #5c2f2b;
+  color: #ffd5d1;
   font-weight: 700;
   font-family: inherit;
   font-size: 0.75rem;
 }
 
 .chat-delete:hover {
-  background: #ffd7d3;
+  background: #72403b;
 }
 
 .chat-view {
   display: grid;
   grid-template-rows: auto 1fr;
   min-height: 100vh;
+  background: #000;
 }
 
 .chat-header {
@@ -168,7 +166,7 @@ body {
   align-items: center;
   padding: 12px 16px;
   border-bottom: 1px solid var(--line);
-  background: rgba(248, 251, 250, 0.92);
+  background: rgba(10, 10, 10, 0.96);
   backdrop-filter: blur(8px);
 }
 
@@ -194,10 +192,13 @@ body {
   display: grid;
   gap: 8px;
   align-content: start;
+  background: #000;
 }
 
 .message-row {
   display: flex;
+  align-items: flex-start;
+  gap: 8px;
   touch-action: pan-y;
 }
 
@@ -209,9 +210,8 @@ body {
   justify-content: flex-end;
 }
 
-.message-row.pressing .bubble {
-  outline: 2px solid rgba(11, 122, 109, 0.45);
-  transform: scale(0.995);
+.message-row.in .marker-toggle {
+  order: 2;
 }
 
 .bubble {
@@ -220,6 +220,44 @@ body {
   border-radius: 8px;
   position: relative;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+}
+
+.marker-toggle {
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(28, 28, 28, 0.92);
+  color: #b8b8bc;
+  cursor: pointer;
+  font: inherit;
+  font-size: 1rem;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  margin-top: 4px;
+  transition: background 120ms ease, color 120ms ease, transform 120ms ease;
+}
+
+.marker-toggle:hover {
+  background: #625630;
+  color: #fff0b1;
+}
+
+.marker-toggle.active {
+  background: #8b7840;
+  color: #fff3bf;
+}
+
+.marker-toggle:active {
+  transform: scale(0.96);
+}
+
+.marker-toggle:focus-visible {
+  outline: 2px solid rgba(11, 122, 109, 0.45);
+  outline-offset: 2px;
 }
 
 .message-row.in .bubble {
@@ -234,7 +272,7 @@ body {
 
 .sender {
   margin: 0 0 4px;
-  color: #0a7a49;
+  color: #7fd0a0;
   font-weight: 700;
   font-size: 0.79rem;
 }
@@ -253,7 +291,7 @@ body {
   display: inline-block;
   padding: 0.08rem 0.38rem;
   border-radius: 6px;
-  background: rgba(21, 32, 33, 0.08);
+  background: rgba(255, 255, 255, 0.1);
   font-family: "Consolas", "Courier New", monospace;
   font-size: 0.95em;
 }
@@ -272,8 +310,8 @@ body {
 .media-missing {
   margin: 0 0 6px;
   font-size: 0.82rem;
-  color: #5d6f73;
-  background: rgba(255, 255, 255, 0.6);
+  color: #bfd0cb;
+  background: rgba(255, 255, 255, 0.08);
   border-radius: 6px;
   padding: 6px 8px;
 }
@@ -282,19 +320,8 @@ body {
   display: block;
   text-align: right;
   margin-top: 3px;
-  color: #6a7a7f;
+  color: #9fb1ac;
   font-size: 0.72rem;
-}
-
-.marker {
-  justify-self: center;
-  background: #fff8c4;
-  color: #745a00;
-  border: 1px solid #f2dc89;
-  padding: 5px 10px;
-  border-radius: 999px;
-  font-weight: 700;
-  font-size: 0.78rem;
 }
 
 @media (max-width: 860px) {

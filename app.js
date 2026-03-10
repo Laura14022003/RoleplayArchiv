@@ -2,16 +2,12 @@ const storageKey = 'rp-archiv-v1';
 const mediaDbName = 'rp-media-db';
 const mediaStoreName = 'media_assets';
 const mediaDbVersion = 1;
-const markerLongPressMs = 550;
-
 const state = {
   chats: [],
   selectedChatId: null,
   markerByChat: {},
   sessionMediaByChat: {},
   mediaLoadInFlight: {},
-  markerPressTimer: null,
-  markerPressSeq: null,
 };
 
 const mediaDbPromise = openMediaDb();
@@ -25,7 +21,6 @@ const ui = {
   chatMeta: document.getElementById('chatMeta'),
   messages: document.getElementById('messages'),
   messageTemplate: document.getElementById('messageTemplate'),
-  setMarkerBtn: document.getElementById('setMarkerBtn'),
   jumpMarkerBtn: document.getElementById('jumpMarkerBtn'),
   toggleSidebarBtn: document.getElementById('toggleSidebarBtn'),
   sidebar: document.getElementById('sidebar'),
@@ -48,7 +43,6 @@ function bindEvents() {
   ui.chatFileInput.addEventListener('change', handleImportFile);
   ui.archiveFileInput.addEventListener('change', handleArchiveImportFile);
   ui.exportArchiveBtn.addEventListener('click', exportArchiveFile);
-  ui.setMarkerBtn.addEventListener('click', saveMarkerAtCurrentViewport);
   ui.jumpMarkerBtn.addEventListener('click', jumpToMarker);
   ui.toggleSidebarBtn.addEventListener('click', () => {
     ui.sidebar.classList.toggle('open');
@@ -394,14 +388,12 @@ function renderSelectedChat() {
   if (!chat) {
     ui.chatTitle.textContent = 'Kein Chat ausgewählt';
     ui.chatMeta.textContent = 'Importiere einen WhatsApp Export (.txt oder .zip)';
-    ui.setMarkerBtn.disabled = true;
     ui.jumpMarkerBtn.disabled = true;
     return;
   }
 
   ui.chatTitle.textContent = chat.title;
   ui.chatMeta.textContent = `${chat.messages.length} Nachrichten`;
-  ui.setMarkerBtn.disabled = false;
   ui.jumpMarkerBtn.disabled = !state.markerByChat[chat.id];
 
   const marker = state.markerByChat[chat.id];
@@ -410,68 +402,24 @@ function renderSelectedChat() {
   for (const msg of chat.messages) {
     if (!me) me = msg.sender;
 
-    if (marker?.seq === msg.seq) {
-      const markerEl = document.createElement('div');
-      markerEl.className = 'marker';
-      markerEl.textContent = 'Weiterlesen ab hier';
-      ui.messages.appendChild(markerEl);
-    }
-
     const clone = ui.messageTemplate.content.firstElementChild.cloneNode(true);
     clone.classList.add(msg.sender === me ? 'out' : 'in');
     clone.dataset.seq = String(msg.seq);
+    const markerBtn = clone.querySelector('.marker-toggle');
+    const isMarked = marker?.seq === msg.seq;
+    markerBtn.innerHTML = isMarked ? '&#128204;' : '&#128392;';
+    markerBtn.classList.toggle('active', isMarked);
+    markerBtn.setAttribute('aria-pressed', isMarked ? 'true' : 'false');
+    markerBtn.setAttribute('aria-label', isMarked ? 'Marker gesetzt' : 'Marker setzen');
+    markerBtn.title = isMarked ? 'Marker gesetzt' : 'Marker setzen';
+    markerBtn.addEventListener('click', () => saveMarkerAtMessageSeq(msg.seq));
     clone.querySelector('.sender').textContent = msg.sender;
     renderFormattedMessage(clone.querySelector('.text'), msg.text || '');
     clone.querySelector('.time').textContent = formatTime(msg.sentAt);
-    bindMarkerLongPress(clone, msg.seq);
 
     attachMediaNode(clone.querySelector('.bubble'), chat.id, msg);
     ui.messages.appendChild(clone);
   }
-}
-
-function bindMarkerLongPress(node, seq) {
-  const start = (event) => {
-    if (event.pointerType === 'mouse' && event.button !== 0) return;
-    clearMarkerLongPress();
-    state.markerPressSeq = seq;
-    node.classList.add('pressing');
-    state.markerPressTimer = window.setTimeout(() => {
-      saveMarkerAtMessageSeq(seq);
-      clearMarkerLongPress();
-    }, markerLongPressMs);
-  };
-
-  const cancel = () => {
-    if (state.markerPressSeq === seq) {
-      clearMarkerLongPress();
-    } else {
-      node.classList.remove('pressing');
-    }
-  };
-
-  node.addEventListener('pointerdown', start);
-  node.addEventListener('pointerup', cancel);
-  node.addEventListener('pointerleave', cancel);
-  node.addEventListener('pointercancel', cancel);
-  node.addEventListener('contextmenu', (event) => {
-    if (state.markerPressSeq === seq) {
-      event.preventDefault();
-    }
-  });
-}
-
-function clearMarkerLongPress() {
-  if (state.markerPressTimer) {
-    window.clearTimeout(state.markerPressTimer);
-    state.markerPressTimer = null;
-  }
-
-  for (const row of ui.messages.querySelectorAll('.message-row.pressing')) {
-    row.classList.remove('pressing');
-  }
-
-  state.markerPressSeq = null;
 }
 
 function attachMediaNode(bubbleNode, chatId, msg) {
@@ -505,7 +453,7 @@ function formatMessageText(text) {
   let html = escapeHtml(text || '');
 
   html = html.replace(/```([\s\S]+?)```/g, (_, content) => {
-    const token = `__CODE_TOKEN_${codeTokens.length}__`;
+    const token = `@@CODETOKEN${codeTokens.length}@@`;
     codeTokens.push(`<span class="text-code">${content}</span>`);
     return token;
   });
@@ -514,7 +462,7 @@ function formatMessageText(text) {
   html = html.replace(/_([^_\n]+)_/g, '<em>$1</em>');
 
   for (let i = 0; i < codeTokens.length; i += 1) {
-    html = html.replace(`__CODE_TOKEN_${i}__`, codeTokens[i]);
+    html = html.replace(`@@CODETOKEN${i}@@`, codeTokens[i]);
   }
 
   return html;
@@ -526,29 +474,6 @@ function formatTime(iso) {
     dateStyle: 'short',
     timeStyle: 'short',
   }).format(date);
-}
-
-function saveMarkerAtCurrentViewport() {
-  const chat = getSelectedChat();
-  if (!chat) return;
-
-  const rows = Array.from(ui.messages.querySelectorAll('.message-row'));
-  if (rows.length === 0) return;
-
-  const containerTop = ui.messages.getBoundingClientRect().top;
-  let best = rows[0];
-  let bestDistance = Infinity;
-
-  for (const row of rows) {
-    const distance = Math.abs(row.getBoundingClientRect().top - containerTop);
-    if (distance < bestDistance) {
-      bestDistance = distance;
-      best = row;
-    }
-  }
-
-  const seq = Number(best.dataset.seq);
-  saveMarkerAtMessageSeq(seq);
 }
 
 function saveMarkerAtMessageSeq(seq) {

@@ -40,7 +40,6 @@
           <p id="chatMeta">Importiere einen WhatsApp Export (.txt oder .zip)</p>
         </div>
         <div class="chat-actions">
-          <button class="btn secondary" id="setMarkerBtn" type="button" disabled>Hier weiterlesen</button>
           <button class="btn secondary" id="jumpMarkerBtn" type="button" disabled>Zu Marker springen</button>
         </div>
       </header>
@@ -51,6 +50,7 @@
 
   <template id="messageTemplate">
     <article class="message-row">
+      <button class="marker-toggle" type="button" aria-label="Marker setzen" title="Marker setzen"></button>
       <div class="bubble">
         <p class="sender"></p>
         <p class="text"></p>
