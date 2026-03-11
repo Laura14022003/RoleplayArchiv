@@ -49,6 +49,10 @@
       gap: 12px;
     }
 
+    .sidebar-scrim {
+      display: none;
+    }
+
     .sidebar-head h1 {
       margin: 0;
       font-size: 1.2rem;
@@ -292,6 +296,10 @@
     }
 
     #toggleSidebarBtn {
+      display: none;
+    }
+
+    #toggleHeaderControlsBtn {
       display: none;
     }
 
@@ -662,6 +670,22 @@
         transform: translateX(0);
       }
 
+      .sidebar-scrim {
+        display: block;
+        position: fixed;
+        inset: 0;
+        z-index: 7;
+        background: rgba(0, 0, 0, 0.48);
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 180ms ease;
+      }
+
+      .sidebar-scrim.visible {
+        opacity: 1;
+        pointer-events: auto;
+      }
+
       .chat-header {
         align-items: stretch;
         flex-direction: column;
@@ -677,6 +701,26 @@
         flex-wrap: wrap;
       }
 
+      .chat-tools {
+        display: none;
+      }
+
+      .chat-actions .view-select,
+      .chat-actions #renameParticipantsBtn,
+      .chat-actions #jumpMarkerBtn {
+        display: none;
+      }
+
+      .chat-header.show-controls .chat-tools {
+        display: grid;
+      }
+
+      .chat-header.show-controls .chat-actions .view-select,
+      .chat-header.show-controls .chat-actions #renameParticipantsBtn,
+      .chat-header.show-controls .chat-actions #jumpMarkerBtn {
+        display: inline-flex;
+      }
+
       .person-row {
         grid-template-columns: 1fr;
       }
@@ -687,6 +731,10 @@
       }
 
       #toggleSidebarBtn {
+        display: inline-flex;
+      }
+
+      #toggleHeaderControlsBtn {
         display: inline-flex;
       }
 
@@ -722,6 +770,7 @@
 
       <nav class="chat-list" id="chatList"></nav>
     </aside>
+    <div class="sidebar-scrim" id="sidebarScrim" aria-hidden="true"></div>
 
     <main class="chat-view" id="chatView">
       <div class="chat-backdrop" id="chatBackdrop" aria-hidden="true">
@@ -742,6 +791,7 @@
         </div>
         <div class="chat-actions">
           <button class="btn secondary" id="toggleSidebarBtn" type="button">Chats</button>
+          <button class="btn secondary" id="toggleHeaderControlsBtn" type="button">Optionen</button>
           <select class="view-select" id="viewSenderSelect" disabled>
             <option value="">Sicht waehlen</option>
           </select>
@@ -838,7 +888,9 @@
       closePeopleModalBtn: document.getElementById('closePeopleModalBtn'),
       savePeopleBtn: document.getElementById('savePeopleBtn'),
       toggleSidebarBtn: document.getElementById('toggleSidebarBtn'),
+      toggleHeaderControlsBtn: document.getElementById('toggleHeaderControlsBtn'),
       sidebar: document.getElementById('sidebar'),
+      sidebarScrim: document.getElementById('sidebarScrim'),
       mediaOverlay: document.getElementById('mediaOverlay'),
       mediaOverlayImage: document.getElementById('mediaOverlayImage'),
       closeMediaOverlayBtn: document.getElementById('closeMediaOverlayBtn'),
@@ -893,6 +945,13 @@
       });
       ui.toggleSidebarBtn.addEventListener('click', () => {
         ui.sidebar.classList.toggle('open');
+        ui.sidebarScrim.classList.toggle('visible', ui.sidebar.classList.contains('open'));
+      });
+      ui.toggleHeaderControlsBtn.addEventListener('click', () => {
+        ui.chatView.querySelector('.chat-header').classList.toggle('show-controls');
+      });
+      ui.sidebarScrim.addEventListener('click', () => {
+        closeSidebarPanel();
       });
       ui.closeMediaOverlayBtn.addEventListener('click', closeMediaOverlay);
       ui.mediaOverlay.addEventListener('click', (event) => {
@@ -909,6 +968,11 @@
           closeMediaOverlay();
         }
       });
+    }
+
+    function closeSidebarPanel() {
+      ui.sidebar.classList.remove('open');
+      ui.sidebarScrim.classList.remove('visible');
     }
 
     async function handleImportFile(event) {
@@ -1325,7 +1389,7 @@
         openBtn.addEventListener('click', async () => {
           await selectChat(chat.id);
           if (window.innerWidth <= 860) {
-            ui.sidebar.classList.remove('open');
+            closeSidebarPanel();
           }
         });
 
@@ -1392,6 +1456,8 @@
       ui.searchMatchCount.textContent = '0/0';
       ui.prevSearchMatchBtn.disabled = true;
       ui.nextSearchMatchBtn.disabled = true;
+      ui.chatView.querySelector('.chat-header').classList.remove('show-controls');
+      closeSidebarPanel();
       renderChatList();
       renderSelectedChat();
       await ensureChatMediaLoaded(chatId);
