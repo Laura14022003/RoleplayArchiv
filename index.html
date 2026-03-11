@@ -212,6 +212,7 @@
 
     .chat-header-info {
       min-width: 0;
+      width: 100%;
     }
 
     .chat-tools {
@@ -697,8 +698,10 @@
       }
 
       .chat-actions {
-        flex-direction: row;
-        flex-wrap: wrap;
+        width: 100%;
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        align-items: stretch;
       }
 
       .chat-tools {
@@ -718,7 +721,9 @@
       .chat-header.show-controls .chat-actions .view-select,
       .chat-header.show-controls .chat-actions #renameParticipantsBtn,
       .chat-header.show-controls .chat-actions #jumpMarkerBtn {
-        display: inline-flex;
+        display: block;
+        width: 100%;
+        min-width: 0;
       }
 
       .person-row {
@@ -728,6 +733,13 @@
       .chat-actions .btn {
         padding: 8px;
         font-size: 0.8rem;
+        width: 100%;
+        justify-content: center;
+      }
+
+      .chat-actions .view-select {
+        width: 100%;
+        min-width: 0;
       }
 
       #toggleSidebarBtn {
@@ -790,8 +802,8 @@
           </div>
         </div>
         <div class="chat-actions">
-          <button class="btn secondary" id="toggleSidebarBtn" type="button">Chats</button>
-          <button class="btn secondary" id="toggleHeaderControlsBtn" type="button">Optionen</button>
+          <button class="btn secondary" id="toggleSidebarBtn" type="button" aria-expanded="false">Chats</button>
+          <button class="btn secondary" id="toggleHeaderControlsBtn" type="button" aria-expanded="false">Optionen</button>
           <select class="view-select" id="viewSenderSelect" disabled>
             <option value="">Sicht waehlen</option>
           </select>
@@ -944,11 +956,10 @@
         moveSearchMatch(1);
       });
       ui.toggleSidebarBtn.addEventListener('click', () => {
-        ui.sidebar.classList.toggle('open');
-        ui.sidebarScrim.classList.toggle('visible', ui.sidebar.classList.contains('open'));
+        toggleSidebarPanel();
       });
       ui.toggleHeaderControlsBtn.addEventListener('click', () => {
-        ui.chatView.querySelector('.chat-header').classList.toggle('show-controls');
+        toggleHeaderControls();
       });
       ui.sidebarScrim.addEventListener('click', () => {
         closeSidebarPanel();
@@ -973,6 +984,37 @@
     function closeSidebarPanel() {
       ui.sidebar.classList.remove('open');
       ui.sidebarScrim.classList.remove('visible');
+      ui.toggleSidebarBtn.setAttribute('aria-expanded', 'false');
+    }
+
+    function toggleSidebarPanel(force) {
+      const nextState = typeof force === 'boolean' ? force : !ui.sidebar.classList.contains('open');
+      if (nextState) {
+        closeHeaderControls();
+      }
+
+      ui.sidebar.classList.toggle('open', nextState);
+      ui.sidebarScrim.classList.toggle('visible', nextState);
+      ui.toggleSidebarBtn.setAttribute('aria-expanded', String(nextState));
+    }
+
+    function closeHeaderControls() {
+      const header = ui.chatView.querySelector('.chat-header');
+      header.classList.remove('show-controls');
+      ui.toggleHeaderControlsBtn.setAttribute('aria-expanded', 'false');
+      ui.toggleHeaderControlsBtn.textContent = 'Optionen';
+    }
+
+    function toggleHeaderControls(force) {
+      const header = ui.chatView.querySelector('.chat-header');
+      const nextState = typeof force === 'boolean' ? force : !header.classList.contains('show-controls');
+      if (nextState) {
+        closeSidebarPanel();
+      }
+
+      header.classList.toggle('show-controls', nextState);
+      ui.toggleHeaderControlsBtn.setAttribute('aria-expanded', String(nextState));
+      ui.toggleHeaderControlsBtn.textContent = nextState ? 'Schliessen' : 'Optionen';
     }
 
     async function handleImportFile(event) {
