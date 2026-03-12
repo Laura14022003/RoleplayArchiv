@@ -9,16 +9,20 @@
   <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700&display=swap" rel="stylesheet">
   <style>
     :root {
-      --bg: #000000;
-      --panel: #0d0d0f;
+      --bg: #060709;
+      --panel: rgba(12, 13, 17, 0.92);
+      --panel-strong: rgba(18, 20, 25, 0.96);
+      --panel-soft: rgba(24, 27, 34, 0.88);
       --text: #edf5f2;
-      --muted: #a9bbb6;
-      --accent: #1b8a78;
-      --accent-strong: #27a08d;
-      --bubble-in: #2b2b2f;
-      --bubble-out: #4a161d;
-      --line: #242428;
-      --shadow: 0 12px 32px rgba(0, 0, 0, 0.28);
+      --muted: #9bb0aa;
+      --accent: #1e8f7a;
+      --accent-strong: #39b59f;
+      --accent-soft: rgba(57, 181, 159, 0.16);
+      --bubble-in: rgba(33, 36, 42, 0.96);
+      --bubble-out: rgba(90, 22, 31, 0.94);
+      --line: rgba(255, 255, 255, 0.08);
+      --line-strong: rgba(255, 255, 255, 0.14);
+      --shadow: 0 20px 44px rgba(0, 0, 0, 0.34);
     }
 
     * {
@@ -29,24 +33,32 @@
       margin: 0;
       font-family: 'Nunito', sans-serif;
       color: var(--text);
-      background: var(--bg);
+      background:
+        radial-gradient(circle at top left, rgba(30, 143, 122, 0.15), transparent 28%),
+        radial-gradient(circle at bottom right, rgba(133, 36, 47, 0.18), transparent 30%),
+        var(--bg);
     }
 
     .app-shell {
       min-height: 100vh;
       display: grid;
-      grid-template-columns: 330px 1fr;
+      grid-template-columns: 350px 1fr;
     }
 
     .sidebar {
       position: relative;
       z-index: 2;
       border-right: 1px solid var(--line);
-      background: var(--panel);
-      padding: 14px;
+      background:
+        linear-gradient(180deg, rgba(17, 19, 24, 0.96), rgba(10, 11, 14, 0.92)),
+        var(--panel);
+      padding: 16px 14px 14px;
       display: flex;
       flex-direction: column;
       gap: 12px;
+      backdrop-filter: blur(14px);
+      min-height: 100vh;
+      overflow-y: auto;
     }
 
     .sidebar-scrim {
@@ -55,13 +67,24 @@
 
     .sidebar-head h1 {
       margin: 0;
-      font-size: 1.2rem;
+      font-size: 1.28rem;
+      letter-spacing: 0.01em;
     }
 
     .sidebar-head p {
-      margin: 4px 0 0;
+      margin: 6px 0 0;
       font-size: 0.9rem;
       color: var(--muted);
+    }
+
+    .sidebar-head {
+      padding: 16px;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.01)),
+        rgba(10, 12, 16, 0.8);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
     }
 
     .toolbar {
@@ -70,19 +93,28 @@
       flex-wrap: wrap;
     }
 
+    .sidebar-utility {
+      display: grid;
+      gap: 10px;
+      padding: 6px 0 2px;
+    }
+
     .btn {
       border: 0;
-      border-radius: 10px;
+      border-radius: 12px;
       background: var(--accent);
       color: #fff;
       font-weight: 700;
       font-family: inherit;
       cursor: pointer;
-      padding: 10px 12px;
+      padding: 10px 13px;
+      transition: transform 140ms ease, background 140ms ease, box-shadow 140ms ease, border-color 140ms ease;
+      box-shadow: 0 10px 20px rgba(10, 14, 18, 0.2);
     }
 
     .btn:hover {
       background: var(--accent-strong);
+      transform: translateY(-1px);
     }
 
     .btn:disabled,
@@ -93,8 +125,9 @@
     }
 
     .btn.secondary {
-      background: #1c1c20;
-      color: #e2e2e6;
+      background: rgba(27, 30, 37, 0.92);
+      color: #e7eceb;
+      border: 1px solid rgba(255, 255, 255, 0.06);
     }
 
     .file-btn {
@@ -113,26 +146,61 @@
     }
 
     .chat-list {
-      margin-top: 2px;
+      margin-top: 4px;
       display: grid;
-      gap: 8px;
-      overflow-y: auto;
+      gap: 10px;
+      padding-bottom: 8px;
+    }
+
+    .chat-list-empty {
+      padding: 14px;
+      border: 1px dashed #303436;
+      border-radius: 12px;
+      background: #101114;
+      color: var(--muted);
+      font-size: 0.9rem;
+      line-height: 1.4;
     }
 
     .chat-item {
       border: 1px solid var(--line);
-      background: #17171a;
-      border-radius: 10px;
-      padding: 8px;
+      background:
+        linear-gradient(180deg, rgba(24, 26, 31, 0.94), rgba(15, 16, 20, 0.92));
+      border-radius: 16px;
+      padding: 10px;
       display: grid;
       grid-template-columns: 1fr auto;
       gap: 8px;
       align-items: center;
+      transition: border-color 140ms ease, transform 140ms ease, background 140ms ease;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .chat-item::before {
+      content: '';
+      position: absolute;
+      inset: 10px auto 10px 0;
+      width: 3px;
+      border-radius: 999px;
+      background: transparent;
+      transition: background 140ms ease;
     }
 
     .chat-item.active {
-      border-color: #6b2a33;
+      border-color: rgba(57, 181, 159, 0.28);
       box-shadow: var(--shadow);
+      transform: translateY(-1px);
+      background:
+        linear-gradient(180deg, rgba(27, 31, 37, 0.98), rgba(15, 16, 20, 0.94));
+    }
+
+    .chat-item.active::before {
+      background: linear-gradient(180deg, var(--accent-strong), rgba(255, 255, 255, 0.12));
+    }
+
+    .chat-item:hover {
+      border-color: var(--line-strong);
     }
 
     .chat-item h3 {
@@ -150,6 +218,13 @@
     .chat-open-text {
       min-width: 0;
       flex: 1 1 auto;
+    }
+
+    .chat-open-text h3,
+    .chat-open-text p,
+    .chat-title-copy h2,
+    .chat-title-copy p {
+      overflow-wrap: anywhere;
     }
 
     .chat-avatar {
@@ -182,15 +257,16 @@
       cursor: pointer;
       font: inherit;
       color: inherit;
-      padding: 2px;
+      padding: 3px;
+      min-width: 0;
     }
 
     .chat-delete {
       border: 0;
-      border-radius: 8px;
-      padding: 6px 8px;
+      border-radius: 10px;
+      padding: 7px 10px;
       cursor: pointer;
-      background: #5c2f2b;
+      background: rgba(99, 47, 43, 0.88);
       color: #ffd5d1;
       font-weight: 700;
       font-family: inherit;
@@ -207,7 +283,8 @@
       display: grid;
       grid-template-rows: auto 1fr;
       min-height: 100vh;
-      background: #000;
+      background:
+        linear-gradient(180deg, rgba(7, 8, 10, 0.82), rgba(4, 5, 7, 0.88));
     }
 
     .chat-backdrop {
@@ -240,15 +317,22 @@
       justify-content: space-between;
       gap: 8px;
       align-items: center;
-      padding: 12px 16px;
+      padding: 14px 18px;
       border-bottom: 1px solid var(--line);
-      background: rgba(10, 10, 10, 0.96);
-      backdrop-filter: blur(8px);
+      background:
+        linear-gradient(180deg, rgba(13, 15, 19, 0.94), rgba(10, 11, 15, 0.88));
+      backdrop-filter: blur(16px);
+      box-shadow: 0 10px 28px rgba(0, 0, 0, 0.18);
     }
 
     .chat-header-info {
       min-width: 0;
       width: 100%;
+      padding: 14px 16px;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 18px;
+      background: rgba(14, 16, 20, 0.72);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
     }
 
     .chat-title-row {
@@ -285,16 +369,29 @@
       grid-template-columns: minmax(0, 300px) auto;
       gap: 10px;
       align-items: center;
+      padding-top: 12px;
+      border-top: 1px solid rgba(255, 255, 255, 0.06);
     }
 
     .search-input {
       width: 100%;
-      border: 1px solid #2d3332;
-      border-radius: 10px;
-      background: #141518;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 12px;
+      background: rgba(20, 21, 24, 0.92);
       color: var(--text);
       font: inherit;
-      padding: 10px 12px;
+      padding: 11px 13px;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+    }
+
+    .search-input:focus-visible,
+    .view-select:focus-visible,
+    .chat-header-avatar:focus-visible,
+    .chat-open:focus-visible,
+    .chat-delete:focus-visible,
+    .scroll-latest-btn:focus-visible {
+      outline: 2px solid rgba(57, 181, 159, 0.45);
+      outline-offset: 2px;
     }
 
     .search-input::placeholder {
@@ -326,12 +423,12 @@
     }
 
     .view-select {
-      border: 1px solid #2d3332;
-      border-radius: 10px;
-      background: #141518;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 12px;
+      background: rgba(20, 21, 24, 0.92);
       color: var(--text);
       font: inherit;
-      padding: 10px 12px;
+      padding: 11px 13px;
       min-width: 170px;
     }
 
@@ -344,7 +441,8 @@
 
     .chat-header h2 {
       margin: 0;
-      font-size: 1rem;
+      font-size: 1.08rem;
+      font-weight: 800;
     }
 
     .chat-header p {
@@ -358,6 +456,13 @@
       gap: 8px;
       flex: 0 0 auto;
       align-items: flex-start;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      padding: 10px;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 18px;
+      background: rgba(14, 16, 20, 0.72);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
     }
 
     #toggleSidebarBtn {
@@ -371,21 +476,57 @@
     .messages {
       position: relative;
       z-index: 1;
-      padding: 16px;
+      padding: 18px 20px 26px;
       overflow-y: auto;
       display: grid;
-      gap: 8px;
+      gap: 10px;
       align-content: start;
-      background: transparent;
+      background:
+        radial-gradient(circle at top, rgba(255, 255, 255, 0.03), transparent 32%),
+        linear-gradient(180deg, rgba(255, 255, 255, 0.01), transparent 18%);
       overflow-x: hidden;
     }
 
     .messages-empty {
-      padding: 18px 16px;
+      padding: 20px 18px;
       border: 1px dashed #2d3332;
-      border-radius: 12px;
-      background: #0f1012;
+      border-radius: 14px;
+      background: linear-gradient(180deg, rgba(16, 17, 20, 0.94), rgba(10, 11, 13, 0.94));
       color: var(--muted);
+    }
+
+    .messages-empty strong {
+      display: block;
+      margin-bottom: 6px;
+      color: var(--text);
+      font-size: 0.98rem;
+    }
+
+    .messages-empty span {
+      display: block;
+      line-height: 1.45;
+    }
+
+    .scroll-latest-btn {
+      position: fixed;
+      right: 18px;
+      bottom: 18px;
+      z-index: 6;
+      border: 0;
+      border-radius: 999px;
+      padding: 11px 14px;
+      background: rgba(18, 20, 24, 0.95);
+      color: #f4fbf8;
+      box-shadow: var(--shadow);
+      cursor: pointer;
+      display: none;
+      backdrop-filter: blur(10px);
+    }
+
+    .scroll-latest-btn.visible {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
     }
 
     .message-row {
@@ -416,11 +557,12 @@
 
     .bubble {
       max-width: min(700px, calc(100% - 36px));
-      padding: 8px 10px 7px;
-      border-radius: 8px;
+      padding: 10px 12px 8px;
+      border-radius: 18px;
       position: relative;
-      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+      box-shadow: 0 12px 28px rgba(0, 0, 0, 0.14);
       min-width: 0;
+      border: 1px solid rgba(255, 255, 255, 0.04);
     }
 
     .marker-toggle {
@@ -463,12 +605,12 @@
 
     .message-row.in .bubble {
       background: var(--bubble-in);
-      border-top-left-radius: 3px;
+      border-top-left-radius: 6px;
     }
 
     .message-row.out .bubble {
       background: var(--bubble-out);
-      border-top-right-radius: 3px;
+      border-top-right-radius: 6px;
     }
 
     .sender {
@@ -513,9 +655,10 @@
     .media-image {
       display: block;
       width: min(320px, 100%);
-      border-radius: 8px;
-      margin-bottom: 6px;
+      border-radius: 14px;
+      margin-bottom: 8px;
       cursor: zoom-in;
+      box-shadow: 0 10px 24px rgba(0, 0, 0, 0.22);
     }
 
     .media-missing {
@@ -601,11 +744,12 @@
       width: min(720px, 100%);
       max-height: min(86vh, 760px);
       overflow: auto;
-      border: 1px solid #2d3332;
-      border-radius: 16px;
-      background: #121316;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 20px;
+      background:
+        linear-gradient(180deg, rgba(18, 19, 22, 0.98), rgba(12, 13, 17, 0.96));
       box-shadow: var(--shadow);
-      padding: 18px;
+      padding: 20px;
     }
 
     .people-panel h3 {
@@ -732,11 +876,13 @@
 
       .sidebar {
         position: fixed;
-        inset: 0 22% 0 0;
+        inset: 0 12% 0 0;
         transform: translateX(-102%);
         transition: transform 180ms ease;
         z-index: 8;
         box-shadow: var(--shadow);
+        border-right: 1px solid rgba(255, 255, 255, 0.08);
+        overflow-y: auto;
       }
 
       .sidebar.open {
@@ -762,7 +908,16 @@
       .chat-header {
         align-items: stretch;
         flex-direction: column;
-        padding-right: 10px;
+        padding: 12px 12px 12px 14px;
+      }
+
+      .sidebar-utility {
+        padding: 6px 0 4px;
+      }
+
+      .chat-list {
+        gap: 12px;
+        padding-right: 0;
       }
 
       .chat-tools {
@@ -782,6 +937,7 @@
 
       .chat-actions .view-select,
       .chat-actions #renameParticipantsBtn,
+      .chat-actions #mergeMediaLabel,
       .chat-actions #jumpMarkerBtn {
         display: none;
       }
@@ -792,6 +948,7 @@
 
       .chat-header.show-controls .chat-actions .view-select,
       .chat-header.show-controls .chat-actions #renameParticipantsBtn,
+      .chat-header.show-controls .chat-actions #mergeMediaLabel,
       .chat-header.show-controls .chat-actions #jumpMarkerBtn {
         display: block;
         width: 100%;
@@ -823,11 +980,16 @@
       }
 
       .messages {
-        padding: 12px 10px;
+        padding: 12px 10px 22px;
       }
 
       .bubble {
         max-width: calc(100% - 34px);
+      }
+
+      .scroll-latest-btn {
+        right: 12px;
+        bottom: 12px;
       }
     }
   </style>
@@ -840,16 +1002,19 @@
         <p>WhatsApp-Chats zum Nachlesen</p>
       </div>
 
-      <div class="toolbar">
-        <label class="btn file-btn">
-          Chat importieren
-          <input id="chatFileInput" type="file" accept=".txt,.zip" />
-        </label>
-        <label class="btn secondary file-btn">
-          Archiv importieren
-          <input id="archiveFileInput" type="file" accept=".json" />
-        </label>
-        <button class="btn secondary" id="exportArchiveBtn" type="button">Archiv exportieren</button>
+      <div class="sidebar-utility">
+        <input id="chatListSearchInput" class="search-input" type="search" placeholder="Chats schnell finden" />
+        <div class="toolbar">
+          <label class="btn file-btn">
+            Chat importieren
+            <input id="chatFileInput" type="file" accept=".txt,.zip" />
+          </label>
+          <label class="btn secondary file-btn">
+            Archiv importieren
+            <input id="archiveFileInput" type="file" accept=".json" />
+          </label>
+          <button class="btn secondary" id="exportArchiveBtn" type="button">Archiv exportieren</button>
+        </div>
       </div>
 
       <nav class="chat-list" id="chatList"></nav>
@@ -894,6 +1059,7 @@
       </header>
 
       <section class="messages" id="messages"></section>
+      <button class="scroll-latest-btn" id="scrollLatestBtn" type="button">Neueste Nachricht</button>
     </main>
   </div>
 
@@ -956,6 +1122,7 @@
         searchTerm: '',
         matchIndex: 0,
       },
+      chatListFilter: '',
     };
 
     const mediaDbPromise = openMediaDb();
@@ -968,6 +1135,7 @@
       chatFileInput: document.getElementById('chatFileInput'),
       archiveFileInput: document.getElementById('archiveFileInput'),
       exportArchiveBtn: document.getElementById('exportArchiveBtn'),
+      chatListSearchInput: document.getElementById('chatListSearchInput'),
       chatList: document.getElementById('chatList'),
       chatHeaderAvatar: document.getElementById('chatHeaderAvatar'),
       chatTitle: document.getElementById('chatTitle'),
@@ -997,6 +1165,7 @@
       mediaOverlay: document.getElementById('mediaOverlay'),
       mediaOverlayImage: document.getElementById('mediaOverlayImage'),
       closeMediaOverlayBtn: document.getElementById('closeMediaOverlayBtn'),
+      scrollLatestBtn: document.getElementById('scrollLatestBtn'),
     };
 
     boot().catch(console.error);
@@ -1016,6 +1185,10 @@
       ui.chatFileInput.addEventListener('change', handleImportFile);
       ui.archiveFileInput.addEventListener('change', handleArchiveImportFile);
       ui.exportArchiveBtn.addEventListener('click', exportArchiveFile);
+      ui.chatListSearchInput.addEventListener('input', (event) => {
+        state.chatListFilter = String(event.target.value || '');
+        renderChatList();
+      });
       ui.jumpMarkerBtn.addEventListener('click', jumpToMarker);
       ui.mergeMediaInput.addEventListener('change', handleMergeMediaFile);
       ui.chatHeaderAvatar.addEventListener('click', () => {
@@ -1046,6 +1219,10 @@
         state.filters.searchTerm = event.target.value || '';
         state.filters.matchIndex = 0;
         renderSelectedChat();
+      });
+      ui.messages.addEventListener('scroll', syncScrollLatestButton);
+      ui.scrollLatestBtn.addEventListener('click', () => {
+        ui.messages.scrollTo({ top: ui.messages.scrollHeight, behavior: 'smooth' });
       });
       ui.prevSearchMatchBtn.addEventListener('click', () => {
         moveSearchMatch(-1);
@@ -1740,6 +1917,11 @@
       return details.join(' • ');
     }
 
+    function syncScrollLatestButton() {
+      const nearBottom = ui.messages.scrollHeight - ui.messages.scrollTop - ui.messages.clientHeight < 120;
+      ui.scrollLatestBtn.classList.toggle('visible', !nearBottom && ui.messages.childElementCount > 0);
+    }
+
     function updateSearchNavigation(matchCount) {
       const hasSearch = Boolean(state.filters.searchTerm);
       const safeCount = Math.max(matchCount, 0);
@@ -1784,8 +1966,27 @@
 
     function renderChatList() {
       ui.chatList.innerHTML = '';
+      const filter = state.chatListFilter.trim().toLocaleLowerCase('de-DE');
+      const visibleChats = state.chats.filter((chat) => {
+        if (!filter) return true;
+        const haystack = [
+          chat.title,
+          ...getChatSenders(chat),
+        ].join('\n').toLocaleLowerCase('de-DE');
+        return haystack.includes(filter);
+      });
 
-      for (const chat of state.chats) {
+      if (visibleChats.length === 0) {
+        const empty = document.createElement('div');
+        empty.className = 'chat-list-empty';
+        empty.textContent = filter
+          ? 'Kein Chat passt zur aktuellen Suche.'
+          : 'Noch keine Chats importiert. Starte links oben mit einem WhatsApp-Export.';
+        ui.chatList.appendChild(empty);
+        return;
+      }
+
+      for (const chat of visibleChats) {
         const item = document.createElement('article');
         item.className = `chat-item ${chat.id === state.selectedChatId ? 'active' : ''}`;
         const markerSeq = state.markerByChat[chat.id]?.seq;
@@ -1890,9 +2091,17 @@
       closeSidebarPanel();
       renderChatList();
       renderSelectedChat();
+      requestAnimationFrame(() => {
+        ui.messages.scrollTop = ui.messages.scrollHeight;
+        syncScrollLatestButton();
+      });
       await ensureChatMediaLoaded(chatId);
       if (state.selectedChatId === chatId) {
         renderSelectedChat();
+        requestAnimationFrame(() => {
+          ui.messages.scrollTop = ui.messages.scrollHeight;
+          syncScrollLatestButton();
+        });
       }
     }
 
@@ -2224,6 +2433,7 @@
         ui.prevSearchMatchBtn.disabled = true;
         ui.nextSearchMatchBtn.disabled = true;
         ui.searchMatchCount.textContent = '0/0';
+        ui.scrollLatestBtn.classList.remove('visible');
         return;
       }
 
@@ -2248,10 +2458,11 @@
       if (filteredMessages.length === 0) {
         const emptyState = document.createElement('div');
         emptyState.className = 'messages-empty';
-        emptyState.textContent = state.filters.searchTerm
-          ? 'Keine Nachrichten passen zum aktuellen Filter.'
-          : 'Dieser Chat enth\u00e4lt noch keine Nachrichten.';
+        emptyState.innerHTML = state.filters.searchTerm
+          ? '<strong>Keine Treffer</strong><span>Die aktuelle Suche findet in diesem Chat keine passende Nachricht.</span>'
+          : '<strong>Chat ist bereit</strong><span>Nutze Suche, Marker, Ansicht oder den Medien-Abgleich oben, um dich schneller im Verlauf zu bewegen.</span>';
         ui.messages.appendChild(emptyState);
+        syncScrollLatestButton();
         return;
       }
 
@@ -2285,6 +2496,7 @@
       }
 
       scrollToActiveSearchMatch();
+      syncScrollLatestButton();
     }
 
     function attachMediaNode(bubbleNode, chatId, msg) {
