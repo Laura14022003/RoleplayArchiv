@@ -85,6 +85,13 @@
       background: var(--accent-strong);
     }
 
+    .btn:disabled,
+    .file-btn.disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+      pointer-events: none;
+    }
+
     .btn.secondary {
       background: #1c1c20;
       color: #e2e2e6;
@@ -131,6 +138,35 @@
     .chat-item h3 {
       margin: 0;
       font-size: 0.98rem;
+    }
+
+    .chat-open-content {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+    }
+
+    .chat-open-text {
+      min-width: 0;
+      flex: 1 1 auto;
+    }
+
+    .chat-avatar {
+      width: 38px;
+      height: 38px;
+      border-radius: 999px;
+      border: 1px solid #32363a;
+      background: #111317 center / cover no-repeat;
+      flex: 0 0 auto;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      color: #d7e4df;
+      font-size: 0.82rem;
+      font-weight: 800;
+      overflow: hidden;
+      text-transform: uppercase;
     }
 
     .chat-item p {
@@ -213,6 +249,34 @@
     .chat-header-info {
       min-width: 0;
       width: 100%;
+    }
+
+    .chat-title-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 0;
+    }
+
+    .chat-header-avatar {
+      width: 44px;
+      height: 44px;
+      border: 1px solid #32363a;
+      border-radius: 999px;
+      background: #111317 center / cover no-repeat;
+      flex: 0 0 auto;
+      cursor: zoom-in;
+      display: none;
+      padding: 0;
+    }
+
+    .chat-header-avatar.visible {
+      display: inline-block;
+    }
+
+    .chat-title-copy {
+      min-width: 0;
+      flex: 1 1 auto;
     }
 
     .chat-tools {
@@ -609,6 +673,14 @@
       background: #0a0b0d center / cover no-repeat;
     }
 
+    .chat-icon-preview {
+      width: 72px;
+      height: 72px;
+      border-radius: 999px;
+      border: 1px solid #262b2b;
+      background: #0a0b0d center / cover no-repeat;
+    }
+
     .person-row {
       display: grid;
       grid-template-columns: minmax(0, 1.2fr) minmax(0, 1.2fr) auto;
@@ -790,8 +862,13 @@
       </div>
       <header class="chat-header">
         <div class="chat-header-info">
-          <h2 id="chatTitle">Kein Chat ausgew&auml;hlt</h2>
-          <p id="chatMeta">Importiere einen WhatsApp Export (.txt oder .zip)</p>
+          <div class="chat-title-row">
+            <button class="chat-header-avatar" id="chatHeaderAvatar" type="button" aria-label="Chat-Icon vergr&ouml;&szlig;ern"></button>
+            <div class="chat-title-copy">
+              <h2 id="chatTitle">Kein Chat ausgew&auml;hlt</h2>
+              <p id="chatMeta">Importiere einen WhatsApp Export (.txt oder .zip)</p>
+            </div>
+          </div>
           <div class="chat-tools">
             <input id="messageSearchInput" class="search-input" type="search" placeholder="Nach Namen, Begriffen oder Text suchen" />
             <div class="search-nav">
@@ -808,6 +885,10 @@
             <option value="">Sicht waehlen</option>
           </select>
           <button class="btn secondary" id="renameParticipantsBtn" type="button" disabled>Design ändern</button>
+          <label class="btn secondary file-btn" id="mergeMediaLabel">
+            Medien ergänzen
+            <input id="mergeMediaInput" type="file" accept=".zip" />
+          </label>
           <button class="btn secondary" id="jumpMarkerBtn" type="button" disabled>Zu Marker springen</button>
         </div>
       </header>
@@ -837,7 +918,7 @@
   <div class="people-modal" id="peopleModal" aria-hidden="true">
     <div class="people-panel">
       <h3>Design ändern</h3>
-      <p>Namen und Absenderfarben werden pro Chat gespeichert.</p>
+      <p>Namen, Farben, Ansicht und Hintergrund gelten fuer alle Chats. Nur Chat-Icons bleiben individuell.</p>
       <div class="people-list" id="peopleList"></div>
       <div class="people-actions">
         <button class="btn secondary" id="closePeopleModalBtn" type="button">Abbrechen</button>
@@ -855,10 +936,17 @@
     const appStateRecordId = 'state';
     const mediaDbVersion = 2;
     const maxBackgroundImageBytes = 4 * 1024 * 1024;
+    const defaultGlobalDesign = {
+      senderColors: {},
+      viewSender: '',
+      backgroundColor: '',
+      backgroundImage: '',
+    };
     const state = {
       chats: [],
       selectedChatId: null,
       markerByChat: {},
+      globalDesign: { ...defaultGlobalDesign },
       sessionMediaByChat: {},
       mediaLoadInFlight: {},
       peopleEditor: {
@@ -881,6 +969,7 @@
       archiveFileInput: document.getElementById('archiveFileInput'),
       exportArchiveBtn: document.getElementById('exportArchiveBtn'),
       chatList: document.getElementById('chatList'),
+      chatHeaderAvatar: document.getElementById('chatHeaderAvatar'),
       chatTitle: document.getElementById('chatTitle'),
       chatMeta: document.getElementById('chatMeta'),
       messageSearchInput: document.getElementById('messageSearchInput'),
@@ -895,6 +984,8 @@
       jumpMarkerBtn: document.getElementById('jumpMarkerBtn'),
       viewSenderSelect: document.getElementById('viewSenderSelect'),
       renameParticipantsBtn: document.getElementById('renameParticipantsBtn'),
+      mergeMediaInput: document.getElementById('mergeMediaInput'),
+      mergeMediaLabel: document.getElementById('mergeMediaLabel'),
       peopleModal: document.getElementById('peopleModal'),
       peopleList: document.getElementById('peopleList'),
       closePeopleModalBtn: document.getElementById('closePeopleModalBtn'),
@@ -926,6 +1017,13 @@
       ui.archiveFileInput.addEventListener('change', handleArchiveImportFile);
       ui.exportArchiveBtn.addEventListener('click', exportArchiveFile);
       ui.jumpMarkerBtn.addEventListener('click', jumpToMarker);
+      ui.mergeMediaInput.addEventListener('change', handleMergeMediaFile);
+      ui.chatHeaderAvatar.addEventListener('click', () => {
+        const chat = getSelectedChat();
+        const chatIcon = normalizeChatIcon(chat?.chatIcon);
+        if (!chatIcon) return;
+        openMediaOverlay(chatIcon, `${chat?.title || 'Chat'} Icon`);
+      });
       ui.viewSenderSelect.addEventListener('change', () => {
         saveViewSenderForSelectedChat(ui.viewSenderSelect.value).catch(console.error);
       });
@@ -1056,22 +1154,10 @@
     }
 
     async function importFromZip(file) {
-      if (!window.JSZip) {
-        throw new Error('JSZip nicht geladen. Bitte Internetzugang fuer CDN pruefen.');
-      }
-
-      const zip = await window.JSZip.loadAsync(await file.arrayBuffer());
-      const files = Object.values(zip.files).filter((entry) => !entry.dir);
-      const textEntry = pickWhatsAppTextEntry(files);
-
-      if (!textEntry) {
-        throw new Error('Im ZIP wurde keine WhatsApp .txt Datei gefunden (z.B. _chat.txt).');
-      }
-
       const chatId = crypto.randomUUID();
-      const content = await textEntry.async('string');
-      const mediaIndex = await extractImageMedia(zip, files, chatId);
-      const messages = parseWhatsAppExport(content, mediaIndex);
+      const bundle = await readWhatsAppZipBundle(file);
+      const mediaIndex = await persistMediaBundleForChat(chatId, bundle.mediaBundle);
+      const messages = parseWhatsAppExport(bundle.content, mediaIndex);
 
       if (messages.length === 0) {
         throw new Error('Nachrichten konnten aus der ZIP nicht gelesen werden.');
@@ -1088,6 +1174,65 @@
 
       state.sessionMediaByChat[chat.id] = mediaIndex;
       await addChatToState(chat);
+    }
+
+    async function handleMergeMediaFile(event) {
+      const file = event.target.files?.[0];
+      if (!file) return;
+
+      try {
+        if (!/\.zip$/i.test(file.name)) {
+          throw new Error('Zum Medien-Abgleich bitte einen WhatsApp ZIP-Export mit Medien auswaehlen.');
+        }
+        const chat = getSelectedChat();
+        if (!chat) {
+          throw new Error('Bitte zuerst den Chat auswaehlen, dem die Medien hinzugefuegt werden sollen.');
+        }
+        await mergeMediaFromZipIntoSelectedChat(file, chat);
+      } catch (error) {
+        console.error(error);
+        alert(`Medien konnten nicht ergänzt werden: ${error.message}`);
+      } finally {
+        ui.mergeMediaInput.value = '';
+      }
+    }
+
+    async function mergeMediaFromZipIntoSelectedChat(file, chat) {
+      const bundle = await readWhatsAppZipBundle(file);
+      const importedMessages = parseWhatsAppExport(bundle.content, bundle.mediaBundle.mediaIndex);
+      if (importedMessages.length === 0) {
+        bundle.mediaBundle.revokeAll();
+        throw new Error('Im Zusatz-Export wurden keine Nachrichten erkannt.');
+      }
+
+      const result = await mergeImportedMediaIntoChat(chat, importedMessages, bundle.mediaBundle);
+      if (result.mergedCount === 0) {
+        throw new Error('Es konnten keine passenden Bildnachrichten zum bestehenden Chat zugeordnet werden.');
+      }
+
+      chat.updatedAt = new Date().toISOString();
+      await persistAppState();
+      renderSelectedChat();
+      alert(`${result.mergedCount} Bild${result.mergedCount === 1 ? '' : 'er'} ergänzt. ${result.enrichedMessages} Nachricht${result.enrichedMessages === 1 ? '' : 'en'} wurden aktualisiert.`);
+    }
+
+    async function readWhatsAppZipBundle(file) {
+      if (!window.JSZip) {
+        throw new Error('JSZip nicht geladen. Bitte Internetzugang fuer CDN pruefen.');
+      }
+
+      const zip = await window.JSZip.loadAsync(await file.arrayBuffer());
+      const files = Object.values(zip.files).filter((entry) => !entry.dir);
+      const textEntry = pickWhatsAppTextEntry(files);
+
+      if (!textEntry) {
+        throw new Error('Im ZIP wurde keine WhatsApp .txt Datei gefunden (z.B. _chat.txt).');
+      }
+
+      return {
+        content: await textEntry.async('string'),
+        mediaBundle: await extractImageMediaBundle(zip, files),
+      };
     }
 
     async function addChatToState(chat) {
@@ -1108,8 +1253,10 @@
       return preferred || textFiles[0];
     }
 
-    async function extractImageMedia(zip, files, chatId) {
+    async function extractImageMediaBundle(zip, files) {
       const mediaIndex = {};
+      const mediaBlobs = {};
+      const createdUrlsByKey = {};
 
       for (const entry of files) {
         if (!isImageFile(entry.name) || entry.name.startsWith('__MACOSX/')) {
@@ -1123,12 +1270,47 @@
 
         mediaIndex[normalizedPath] = url;
         mediaIndex[normalizedBase] = url;
-
-        await persistMediaBlob(chatId, normalizedPath, blob);
-        await persistMediaBlob(chatId, normalizedBase, blob);
+        mediaBlobs[normalizedPath] = blob;
+        mediaBlobs[normalizedBase] = blob;
+        createdUrlsByKey[normalizedPath] = url;
+        createdUrlsByKey[normalizedBase] = url;
       }
 
-      return mediaIndex;
+      return {
+        mediaIndex,
+        mediaBlobs,
+        revokeUnused(usedKeys) {
+          const keep = new Set(Array.from(usedKeys || [], (key) => normalizeMediaKey(key)));
+          const revokedUrls = new Set();
+          for (const [mediaKey, url] of Object.entries(createdUrlsByKey)) {
+            if (keep.has(mediaKey) || revokedUrls.has(url)) continue;
+            URL.revokeObjectURL(url);
+            revokedUrls.add(url);
+          }
+        },
+        revokeAll() {
+          const revokedUrls = new Set();
+          for (const url of Object.values(createdUrlsByKey)) {
+            if (revokedUrls.has(url)) continue;
+            URL.revokeObjectURL(url);
+            revokedUrls.add(url);
+          }
+        },
+      };
+    }
+
+    async function persistMediaBundleForChat(chatId, mediaBundle, keyFilter = null) {
+      const nextIndex = {};
+      const allowedKeys = keyFilter ? new Set(Array.from(keyFilter, (key) => normalizeMediaKey(key))) : null;
+      for (const [mediaKey, blob] of Object.entries(mediaBundle.mediaBlobs || {})) {
+        const normalizedKey = normalizeMediaKey(mediaKey);
+        if (allowedKeys && !allowedKeys.has(normalizedKey)) {
+          continue;
+        }
+        await persistMediaBlob(chatId, normalizedKey, blob);
+        nextIndex[normalizedKey] = mediaBundle.mediaIndex[normalizedKey] || URL.createObjectURL(blob);
+      }
+      return nextIndex;
     }
 
     function isImageFile(fileName) {
@@ -1207,7 +1389,8 @@
       cleaned = cleaned.replace(new RegExp(`<\\s*(?:Anhang|attached):\\s*${escapeRegExp(mediaName)}\\s*>`, 'i'), '');
       cleaned = cleaned.replace(/\((?:Datei angeh(?:\u00e4ngt|aengt)|File attached)\)/gi, '');
       cleaned = cleaned.replace(/(?:Datei angeh(?:\u00e4ngt|aengt):|File attached:)\s*[^\n]+/gi, '');
-      cleaned = cleaned.replace(/\b(?:Anhang ausgelassen|Media omitted)\b/gi, '');
+      cleaned = cleaned.replace(/<\s*(?:Medien ausgeschlossen|Media omitted)\s*>/gi, '');
+      cleaned = cleaned.replace(/\b(?:Anhang ausgelassen|Medien ausgeschlossen|Media omitted)\b/gi, '');
       cleaned = cleaned.replace(/^[\s,-]+|[\s,-]+$/g, '');
       return cleaned.trim();
     }
@@ -1279,6 +1462,10 @@
       return typeof value === 'string' && /^data:/i.test(value) ? value : '';
     }
 
+    function normalizeChatIcon(value) {
+      return typeof value === 'string' && /^data:/i.test(value) ? value : '';
+    }
+
     function normalizeSenderColors(senderColors, senders) {
       const normalized = {};
       for (const sender of senders) {
@@ -1290,6 +1477,12 @@
       return normalized;
     }
 
+    function getAllSenders(chats) {
+      return Array.from(new Set((chats || [])
+        .flatMap((chat) => getChatSenders(chat))
+        .filter(Boolean)));
+    }
+
     function getChatSenders(chat) {
       return Array.from(new Set((chat?.messages || []).map((message) => String(message?.sender || '').trim()).filter(Boolean)));
     }
@@ -1297,7 +1490,42 @@
     function getPreferredViewSender(chat) {
       const senders = getChatSenders(chat);
       if (senders.length === 0) return '';
-      return senders.includes(chat?.viewSender) ? chat.viewSender : senders[0];
+      return senders.includes(state.globalDesign.viewSender) ? state.globalDesign.viewSender : senders[0];
+    }
+
+    function normalizeGlobalDesign(globalDesign, chats) {
+      const senders = getAllSenders(chats);
+      return {
+        senderColors: normalizeSenderColors(globalDesign?.senderColors, senders),
+        viewSender: typeof globalDesign?.viewSender === 'string' ? globalDesign.viewSender.trim() : '',
+        backgroundColor: normalizeChatBackground(globalDesign?.backgroundColor),
+        backgroundImage: normalizeChatBackgroundImage(globalDesign?.backgroundImage),
+      };
+    }
+
+    function deriveGlobalDesignFromChats(chats) {
+      const mergedSenderColors = {};
+      let viewSender = '';
+      let backgroundColor = '';
+      let backgroundImage = '';
+      for (const chat of chats || []) {
+        Object.assign(mergedSenderColors, chat?.senderColors || {});
+        if (!viewSender && typeof chat?.viewSender === 'string' && chat.viewSender.trim()) {
+          viewSender = chat.viewSender.trim();
+        }
+        if (!backgroundColor && normalizeChatBackground(chat?.backgroundColor)) {
+          backgroundColor = normalizeChatBackground(chat.backgroundColor);
+        }
+        if (!backgroundImage && normalizeChatBackgroundImage(chat?.backgroundImage)) {
+          backgroundImage = normalizeChatBackgroundImage(chat.backgroundImage);
+        }
+      }
+      return normalizeGlobalDesign({
+        senderColors: mergedSenderColors,
+        viewSender,
+        backgroundColor,
+        backgroundImage,
+      }, chats);
     }
 
     function normalizeChats(chats) {
@@ -1305,20 +1533,17 @@
         ...chat,
         title: sanitizeChatTitle(chat?.title) || 'Unbenannter Chat',
         messages: Array.isArray(chat?.messages) ? chat.messages.map(normalizeStoredMessage) : [],
-        viewSender: getPreferredViewSender(chat),
-        senderColors: normalizeSenderColors(chat?.senderColors, getChatSenders(chat)),
-        backgroundColor: normalizeChatBackground(chat?.backgroundColor),
-        backgroundImage: normalizeChatBackgroundImage(chat?.backgroundImage),
+        chatIcon: normalizeChatIcon(chat?.chatIcon),
       }));
     }
 
     function getSenderColor(chat, sender) {
-      return chat?.senderColors?.[sender] || '';
+      return state.globalDesign.senderColors?.[sender] || '';
     }
 
     function applyChatBackground(chat) {
-      const backgroundColor = normalizeChatBackground(chat?.backgroundColor);
-      const backgroundImage = normalizeChatBackgroundImage(chat?.backgroundImage);
+      const backgroundColor = normalizeChatBackground(state.globalDesign.backgroundColor);
+      const backgroundImage = normalizeChatBackgroundImage(state.globalDesign.backgroundImage);
       ui.chatBackdrop.style.backgroundColor = backgroundColor || '#000000';
       ui.chatBackdropImage.src = backgroundImage || '';
       ui.chatBackdropImage.classList.toggle('visible', Boolean(backgroundImage));
@@ -1341,6 +1566,151 @@
       if (file.size > maxBackgroundImageBytes) {
         throw new Error('Das Hintergrundbild ist zu gross. Bitte ein Bild unter 4 MB verwenden.');
       }
+    }
+
+    function validateChatIconFile(file) {
+      if (!file) return;
+      if (!String(file.type || '').startsWith('image/')) {
+        throw new Error('Bitte ein Bildformat wie JPG, PNG oder WebP fuer das Chat-Icon auswaehlen.');
+      }
+      if (file.size > 1024 * 1024) {
+        throw new Error('Das Chat-Icon ist zu gross. Bitte ein Bild unter 1 MB verwenden.');
+      }
+    }
+
+    function getChatInitials(title) {
+      const parts = String(title || '')
+        .trim()
+        .split(/\s+/)
+        .filter(Boolean)
+        .slice(0, 2);
+      if (parts.length === 0) return '?';
+      return parts.map((part) => part[0] || '').join('').toUpperCase();
+    }
+
+    function normalizeMessageMatchText(text) {
+      return String(text || '')
+        .replace(/<\s*(?:medien ausgeschlossen|media omitted)\s*>/gi, '')
+        .replace(/\((?:datei angeh(?:ängt|aengt)|file attached)\)/gi, '')
+        .replace(/<\s*(?:anhang|attached)\s*:\s*[^>]+>/gi, '')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .toLocaleLowerCase('de-DE');
+    }
+
+    function getMessageSignature(message) {
+      return `${message?.sentAt || ''}|${normalizeMessageMatchText(message?.text)}`;
+    }
+
+    function getMessageTimeKey(message) {
+      return String(message?.sentAt || '');
+    }
+
+    function getMessageMinuteKey(message) {
+      const iso = String(message?.sentAt || '');
+      return iso ? iso.slice(0, 16) : '';
+    }
+
+    function messageHasResolvedImage(chatId, message) {
+      if (message?.mediaType !== 'image' || !message?.mediaName) return false;
+      return Boolean(resolveMediaUrl(message.mediaName, state.sessionMediaByChat[chatId] || {}));
+    }
+
+    function pickMergeCandidate(chatId, candidates, claimedExistingIndexes, importedMessage) {
+      const importedText = normalizeMessageMatchText(importedMessage.text);
+      const available = (candidates || []).filter((entry) => !claimedExistingIndexes.has(entry.index));
+      if (available.length === 0) return null;
+
+      const unresolved = available.filter((entry) => !messageHasResolvedImage(chatId, entry.message));
+      const preferredPool = unresolved.length > 0 ? unresolved : available;
+      const exactText = preferredPool.filter((entry) => normalizeMessageMatchText(entry.message.text) === importedText);
+      if (exactText.length > 0) return exactText[0];
+      return preferredPool[0];
+    }
+
+    async function mergeImportedMediaIntoChat(chat, importedMessages, mediaBundle) {
+      const existingEntries = chat.messages.map((message, index) => ({ message, index }));
+      const exactBuckets = new Map();
+      const timeBuckets = new Map();
+      const minuteBuckets = new Map();
+
+      for (const entry of existingEntries) {
+        const signature = getMessageSignature(entry.message);
+        const timeKey = getMessageTimeKey(entry.message);
+        const minuteKey = getMessageMinuteKey(entry.message);
+        if (!exactBuckets.has(signature)) exactBuckets.set(signature, []);
+        if (!timeBuckets.has(timeKey)) timeBuckets.set(timeKey, []);
+        if (!minuteBuckets.has(minuteKey)) minuteBuckets.set(minuteKey, []);
+        exactBuckets.get(signature).push(entry);
+        timeBuckets.get(timeKey).push(entry);
+        minuteBuckets.get(minuteKey).push(entry);
+      }
+
+      const claimedExistingIndexes = new Set();
+      const claimedMediaKeys = new Set();
+      let mergedCount = 0;
+      let enrichedMessages = 0;
+
+      for (const importedMessage of importedMessages) {
+        if (importedMessage.mediaType !== 'image' || !importedMessage.mediaName) continue;
+        if (!resolveMediaUrl(importedMessage.mediaName, mediaBundle.mediaIndex)) continue;
+
+        const exactCandidates = exactBuckets.get(getMessageSignature(importedMessage)) || [];
+        let matchedEntry = pickMergeCandidate(chat.id, exactCandidates, claimedExistingIndexes, importedMessage);
+
+        if (!matchedEntry) {
+          const timeCandidates = timeBuckets.get(getMessageTimeKey(importedMessage)) || [];
+          matchedEntry = pickMergeCandidate(chat.id, timeCandidates, claimedExistingIndexes, importedMessage);
+        }
+
+        if (!matchedEntry) {
+          const minuteCandidates = minuteBuckets.get(getMessageMinuteKey(importedMessage)) || [];
+          matchedEntry = pickMergeCandidate(chat.id, minuteCandidates, claimedExistingIndexes, importedMessage);
+        }
+
+        if (!matchedEntry) {
+          continue;
+        }
+
+        claimedExistingIndexes.add(matchedEntry.index);
+        const targetMessage = matchedEntry.message;
+        const targetKey = normalizeMediaKey(importedMessage.mediaName);
+        const hadResolvedImage = messageHasResolvedImage(chat.id, targetMessage);
+        if (!hadResolvedImage) {
+          const changedMetadata = targetMessage.mediaName !== importedMessage.mediaName
+            || targetMessage.mediaType !== importedMessage.mediaType
+            || !targetMessage.hasMedia;
+          targetMessage.text = cleanupMediaDisplayText(targetMessage.text || importedMessage.text || '', importedMessage.mediaName);
+          targetMessage.mediaName = importedMessage.mediaName;
+          targetMessage.mediaType = importedMessage.mediaType;
+          targetMessage.hasMedia = true;
+          if (changedMetadata) {
+            enrichedMessages += 1;
+          }
+          claimedMediaKeys.add(targetKey);
+          claimedMediaKeys.add(normalizeMediaKey(basename(importedMessage.mediaName)));
+        } else if (!targetMessage.hasMedia) {
+          targetMessage.hasMedia = true;
+          enrichedMessages += 1;
+        }
+      }
+
+      if (claimedMediaKeys.size === 0) {
+        mediaBundle.revokeAll();
+        return { mergedCount, enrichedMessages };
+      }
+
+      const persistedIndex = await persistMediaBundleForChat(chat.id, mediaBundle, claimedMediaKeys);
+      mediaBundle.revokeUnused(claimedMediaKeys);
+      const currentSessionIndex = state.sessionMediaByChat[chat.id] || {};
+      state.sessionMediaByChat[chat.id] = {
+        ...currentSessionIndex,
+        ...persistedIndex,
+      };
+      mergedCount = Object.keys(persistedIndex).length > 0
+        ? new Set(Object.values(persistedIndex)).size
+        : 0;
+      return { mergedCount, enrichedMessages };
     }
 
     function matchesMessageSearch(message, searchTerm) {
@@ -1423,11 +1793,29 @@
         const openBtn = document.createElement('button');
         openBtn.type = 'button';
         openBtn.className = 'chat-open';
-        openBtn.innerHTML = `
-          <h3>${escapeHtml(chat.title)}</h3>
-          <p>${chat.messages.length} Nachrichten${markerSeq ? ` • Marker bei #${markerSeq}` : ''}</p>
-        `;
-        openBtn.querySelector('p').textContent = markerSeq ? `${chat.messages.length} Nachrichten • Marker bei #${markerSeq}` : `${chat.messages.length} Nachrichten`;
+        const content = document.createElement('div');
+        content.className = 'chat-open-content';
+        const avatar = document.createElement('div');
+        avatar.className = 'chat-avatar';
+        const icon = normalizeChatIcon(chat.chatIcon);
+        if (icon) {
+          avatar.style.backgroundImage = `url("${icon}")`;
+          avatar.setAttribute('aria-hidden', 'true');
+        } else {
+          avatar.textContent = getChatInitials(chat.title);
+          avatar.setAttribute('title', chat.title);
+        }
+        const textWrap = document.createElement('div');
+        textWrap.className = 'chat-open-text';
+        const title = document.createElement('h3');
+        title.textContent = chat.title;
+        const meta = document.createElement('p');
+        meta.textContent = markerSeq ? `${chat.messages.length} Nachrichten • Marker bei #${markerSeq}` : `${chat.messages.length} Nachrichten`;
+        textWrap.appendChild(title);
+        textWrap.appendChild(meta);
+        content.appendChild(avatar);
+        content.appendChild(textWrap);
+        openBtn.appendChild(content);
         openBtn.addEventListener('click', async () => {
           await selectChat(chat.id);
           if (window.innerWidth <= 860) {
@@ -1512,7 +1900,7 @@
       const chat = getSelectedChat();
       if (!chat) return;
 
-      const senders = getChatSenders(chat);
+      const senders = getAllSenders(state.chats);
       ui.peopleList.innerHTML = '';
 
       const chatStyleRow = document.createElement('div');
@@ -1526,7 +1914,7 @@
       const backgroundInput = document.createElement('input');
       backgroundInput.className = 'person-color';
       backgroundInput.type = 'color';
-      backgroundInput.value = normalizeChatBackground(chat.backgroundColor) || '#000000';
+      backgroundInput.value = normalizeChatBackground(state.globalDesign.backgroundColor) || '#000000';
       backgroundInput.id = 'chatBackgroundColorInput';
 
       const imageLabel = document.createElement('label');
@@ -1553,7 +1941,7 @@
       const preview = document.createElement('div');
       preview.className = 'chat-bg-preview';
       preview.id = 'chatBackgroundPreview';
-      const currentImage = normalizeChatBackgroundImage(chat.backgroundImage);
+      const currentImage = normalizeChatBackgroundImage(state.globalDesign.backgroundImage);
       preview.style.backgroundImage = currentImage ? `url("${currentImage}")` : '';
 
       imageInput.addEventListener('change', async () => {
@@ -1582,6 +1970,68 @@
       chatStyleRow.appendChild(chatStyleControls);
       ui.peopleList.appendChild(chatStyleRow);
       ui.peopleList.appendChild(preview);
+
+      const chatIconRow = document.createElement('div');
+      chatIconRow.className = 'chat-style-row';
+      const chatIconLabel = document.createElement('div');
+      chatIconLabel.className = 'chat-style-label';
+      chatIconLabel.textContent = 'Chat-Icon';
+      const chatIconControls = document.createElement('div');
+      chatIconControls.className = 'chat-style-controls';
+
+      const iconLabel = document.createElement('label');
+      iconLabel.className = 'btn secondary chat-style-file';
+      iconLabel.textContent = 'Icon waehlen';
+      const iconInput = document.createElement('input');
+      iconInput.type = 'file';
+      iconInput.accept = 'image/*';
+      iconInput.id = 'chatIconInput';
+      iconLabel.appendChild(iconInput);
+
+      const clearIconBtn = document.createElement('button');
+      clearIconBtn.className = 'btn secondary';
+      clearIconBtn.type = 'button';
+      clearIconBtn.id = 'clearChatIconBtn';
+      clearIconBtn.textContent = 'Icon entfernen';
+      clearIconBtn.dataset.clearIcon = 'false';
+
+      const iconPreview = document.createElement('div');
+      iconPreview.className = 'chat-icon-preview';
+      iconPreview.id = 'chatIconPreview';
+      const currentIcon = normalizeChatIcon(chat.chatIcon);
+      iconPreview.style.backgroundImage = currentIcon ? `url("${currentIcon}")` : '';
+
+      clearIconBtn.addEventListener('click', () => {
+        clearIconBtn.dataset.clearIcon = 'true';
+        iconInput.value = '';
+        iconPreview.style.backgroundImage = '';
+      });
+
+      iconInput.addEventListener('change', async () => {
+        const file = iconInput.files?.[0];
+        if (!file) {
+          iconPreview.style.backgroundImage = currentIcon ? `url("${currentIcon}")` : '';
+          return;
+        }
+        clearIconBtn.dataset.clearIcon = 'false';
+        try {
+          validateChatIconFile(file);
+        } catch (error) {
+          iconInput.value = '';
+          iconPreview.style.backgroundImage = currentIcon ? `url("${currentIcon}")` : '';
+          alert(error.message);
+          return;
+        }
+        const dataUrl = await readFileAsDataUrl(file).catch(() => '');
+        iconPreview.style.backgroundImage = dataUrl ? `url("${dataUrl}")` : '';
+      });
+
+      chatIconControls.appendChild(iconLabel);
+      chatIconControls.appendChild(clearIconBtn);
+      chatIconRow.appendChild(chatIconLabel);
+      chatIconRow.appendChild(chatIconControls);
+      ui.peopleList.appendChild(chatIconRow);
+      ui.peopleList.appendChild(iconPreview);
 
       for (const sender of senders) {
         const row = document.createElement('div');
@@ -1626,7 +2076,7 @@
       const chat = getSelectedChat();
       if (!chat) return;
 
-      const senders = getChatSenders(chat);
+      const senders = getAllSenders(state.chats);
       if (senders.length === 0) {
         alert('In diesem Chat wurden keine Namen gefunden.');
         return;
@@ -1638,6 +2088,8 @@
       const backgroundInput = ui.peopleList.querySelector('#chatBackgroundColorInput');
       const backgroundImageInput = ui.peopleList.querySelector('#chatBackgroundImageInput');
       const clearImageBtn = ui.peopleList.querySelector('#clearChatBackgroundImageBtn');
+      const chatIconInput = ui.peopleList.querySelector('#chatIconInput');
+      const clearIconBtn = ui.peopleList.querySelector('#clearChatIconBtn');
 
       for (const row of rows) {
         const nameInput = row.querySelector('.person-input');
@@ -1664,22 +2116,32 @@
         return;
       }
 
-      chat.messages = chat.messages.map((message) => ({
-        ...message,
-        sender: renameMap.get(message.sender) || message.sender,
-      }));
-      if (chat.viewSender && renameMap.has(chat.viewSender)) {
-        chat.viewSender = renameMap.get(chat.viewSender) || chat.viewSender;
+      for (const existingChat of state.chats) {
+        existingChat.messages = existingChat.messages.map((message) => ({
+          ...message,
+          sender: renameMap.get(message.sender) || message.sender,
+        }));
+        existingChat.updatedAt = new Date().toISOString();
       }
-      chat.senderColors = nextColors;
-      chat.backgroundColor = normalizeChatBackground(backgroundInput?.value);
+      const nextViewSender = renameMap.get(state.globalDesign.viewSender) || state.globalDesign.viewSender;
+      state.globalDesign.senderColors = normalizeSenderColors(nextColors, getAllSenders(state.chats));
+      state.globalDesign.viewSender = typeof nextViewSender === 'string' ? nextViewSender : '';
+      state.globalDesign.backgroundColor = normalizeChatBackground(backgroundInput?.value);
       if (clearImageBtn?.dataset.clearImage === 'true') {
-        chat.backgroundImage = '';
+        state.globalDesign.backgroundImage = '';
       } else if (backgroundImageInput?.files?.[0]) {
         validateBackgroundImageFile(backgroundImageInput.files[0]);
-        chat.backgroundImage = normalizeChatBackgroundImage(await readFileAsDataUrl(backgroundImageInput.files[0]));
+        state.globalDesign.backgroundImage = normalizeChatBackgroundImage(await readFileAsDataUrl(backgroundImageInput.files[0]));
       } else {
-        chat.backgroundImage = normalizeChatBackgroundImage(chat.backgroundImage);
+        state.globalDesign.backgroundImage = normalizeChatBackgroundImage(state.globalDesign.backgroundImage);
+      }
+      if (clearIconBtn?.dataset.clearIcon === 'true') {
+        chat.chatIcon = '';
+      } else if (chatIconInput?.files?.[0]) {
+        validateChatIconFile(chatIconInput.files[0]);
+        chat.chatIcon = normalizeChatIcon(await readFileAsDataUrl(chatIconInput.files[0]));
+      } else {
+        chat.chatIcon = normalizeChatIcon(chat.chatIcon);
       }
       chat.updatedAt = new Date().toISOString();
 
@@ -1694,13 +2156,12 @@
       if (!chat) return;
 
       const nextViewSender = getChatSenders(chat).includes(viewSender) ? viewSender : getPreferredViewSender(chat);
-      if (chat.viewSender === nextViewSender) {
+      if (state.globalDesign.viewSender === nextViewSender) {
         renderSelectedChat();
         return;
       }
 
-      chat.viewSender = nextViewSender;
-      chat.updatedAt = new Date().toISOString();
+      state.globalDesign.viewSender = nextViewSender;
       await persistAppState();
       renderSelectedChat();
     }
@@ -1736,15 +2197,27 @@
       return state.chats.find((chat) => chat.id === state.selectedChatId) || null;
     }
 
+    function syncChatHeaderAvatar(chat) {
+      const chatIcon = normalizeChatIcon(chat?.chatIcon);
+      ui.chatHeaderAvatar.style.backgroundImage = chatIcon ? `url("${chatIcon}")` : '';
+      ui.chatHeaderAvatar.classList.toggle('visible', Boolean(chatIcon));
+      ui.chatHeaderAvatar.disabled = !chatIcon;
+      ui.chatHeaderAvatar.setAttribute('aria-hidden', chatIcon ? 'false' : 'true');
+      ui.chatHeaderAvatar.title = chatIcon ? `${chat?.title || 'Chat'} Icon vergroessern` : '';
+    }
+
     function renderSelectedChat() {
       const chat = getSelectedChat();
       ui.messages.innerHTML = '';
 
       if (!chat) {
         applyChatBackground(null);
+        syncChatHeaderAvatar(null);
         ui.chatTitle.textContent = 'Kein Chat ausgew\u00e4hlt';
         ui.chatMeta.textContent = 'Importiere einen WhatsApp Export (.txt oder .zip)';
         ui.jumpMarkerBtn.disabled = true;
+        ui.mergeMediaInput.disabled = true;
+        ui.mergeMediaLabel.classList.add('disabled');
         syncViewSenderSelect(null);
         ui.renameParticipantsBtn.disabled = true;
         ui.messageSearchInput.disabled = true;
@@ -1755,9 +2228,12 @@
       }
 
       applyChatBackground(chat);
+      syncChatHeaderAvatar(chat);
       ui.messageSearchInput.disabled = false;
       ui.prevSearchMatchBtn.disabled = false;
       ui.nextSearchMatchBtn.disabled = false;
+      ui.mergeMediaInput.disabled = false;
+      ui.mergeMediaLabel.classList.remove('disabled');
       syncViewSenderSelect(chat);
       ui.renameParticipantsBtn.disabled = false;
       const filteredMessages = getFilteredMessages(chat);
@@ -2129,6 +2605,7 @@
           if (record?.data) {
             state.chats = normalizeChats(Array.isArray(record.data.chats) ? record.data.chats : []);
             state.markerByChat = record.data.markerByChat || {};
+            state.globalDesign = normalizeGlobalDesign(record.data.globalDesign || deriveGlobalDesignFromChats(state.chats), state.chats);
             return;
           }
 
@@ -2136,6 +2613,7 @@
           if (migrated.chats.length || Object.keys(migrated.markerByChat).length) {
             state.chats = migrated.chats;
             state.markerByChat = migrated.markerByChat;
+            state.globalDesign = migrated.globalDesign;
             await persistAppState();
             try {
               localStorage.removeItem(storageKey);
@@ -2150,6 +2628,7 @@
       const fallback = loadLegacyLocalState();
       state.chats = fallback.chats;
       state.markerByChat = fallback.markerByChat;
+      state.globalDesign = fallback.globalDesign;
     }
 
     function loadLegacyLocalState() {
@@ -2157,20 +2636,22 @@
       try {
         raw = localStorage.getItem(storageKey);
       } catch {
-        return { chats: [], markerByChat: {} };
+        return { chats: [], markerByChat: {}, globalDesign: { ...defaultGlobalDesign } };
       }
       if (!raw) {
-        return { chats: [], markerByChat: {} };
+        return { chats: [], markerByChat: {}, globalDesign: { ...defaultGlobalDesign } };
       }
 
       try {
         const parsed = JSON.parse(raw);
+        const chats = normalizeChats(Array.isArray(parsed.chats) ? parsed.chats : []);
         return {
-          chats: normalizeChats(Array.isArray(parsed.chats) ? parsed.chats : []),
+          chats,
           markerByChat: parsed.markerByChat || {},
+          globalDesign: normalizeGlobalDesign(parsed.globalDesign || deriveGlobalDesignFromChats(chats), chats),
         };
       } catch {
-        return { chats: [], markerByChat: {} };
+        return { chats: [], markerByChat: {}, globalDesign: { ...defaultGlobalDesign } };
       }
     }
 
@@ -2178,6 +2659,7 @@
       const payload = {
         chats: state.chats,
         markerByChat: state.markerByChat,
+        globalDesign: state.globalDesign,
       };
 
       const db = await mediaDbPromise;
@@ -2237,6 +2719,7 @@
         exportedAt: new Date().toISOString(),
         chats: state.chats,
         markerByChat: state.markerByChat,
+        globalDesign: state.globalDesign,
         mediaAssets,
       };
 
@@ -2261,6 +2744,7 @@
         const archive = validateArchivePayload(raw);
         const chats = normalizeChats(archive.chats);
         const markerByChat = archive.markerByChat;
+        const globalDesign = normalizeGlobalDesign(archive.globalDesign || deriveGlobalDesignFromChats(chats), chats);
         const mediaAssets = archive.mediaAssets;
 
         for (const chatId of Object.keys(state.sessionMediaByChat)) {
@@ -2279,6 +2763,7 @@
 
         state.chats = chats;
         state.markerByChat = markerByChat;
+        state.globalDesign = globalDesign;
         state.selectedChatId = chats[0]?.id || null;
         await persistAppState();
         renderChatList();
@@ -2327,9 +2812,10 @@
 
       const chats = raw.chats.map((chat, index) => validateArchiveChat(chat, index));
       const markerByChat = validateArchiveMarkers(raw.markerByChat || {}, chats);
+      const globalDesign = validateArchiveGlobalDesign(raw.globalDesign || {}, chats);
       const mediaAssets = validateArchiveMediaAssets(raw.mediaAssets || []);
 
-      return { chats, markerByChat, mediaAssets };
+      return { chats, markerByChat, globalDesign, mediaAssets };
     }
 
     function validateArchiveChat(chat, index) {
@@ -2349,6 +2835,7 @@
         title: sanitizeChatTitle(chat.title) || 'Unbenannter Chat',
         backgroundColor: normalizeChatBackground(chat.backgroundColor),
         backgroundImage: normalizeChatBackgroundImage(chat.backgroundImage),
+        chatIcon: normalizeChatIcon(chat.chatIcon),
         messages,
       };
     }
@@ -2386,6 +2873,13 @@
         normalized[chatId] = marker;
       }
       return normalized;
+    }
+
+    function validateArchiveGlobalDesign(globalDesign, chats) {
+      if (!globalDesign || typeof globalDesign !== 'object' || Array.isArray(globalDesign)) {
+        return normalizeGlobalDesign({}, chats);
+      }
+      return normalizeGlobalDesign(globalDesign, chats);
     }
 
     function validateArchiveMediaAssets(mediaAssets) {
