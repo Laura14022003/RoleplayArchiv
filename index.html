@@ -900,6 +900,84 @@
       flex-wrap: wrap;
     }
 
+    .progress-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 40;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      background: rgba(0, 0, 0, 0.62);
+      backdrop-filter: blur(6px);
+    }
+
+    .progress-overlay.open {
+      display: flex;
+    }
+
+    .progress-panel {
+      width: min(420px, 100%);
+      padding: 22px 20px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 20px;
+      background:
+        linear-gradient(180deg, rgba(18, 19, 22, 0.98), rgba(12, 13, 17, 0.96));
+      box-shadow: var(--shadow);
+    }
+
+    .progress-panel h3 {
+      margin: 0;
+      font-size: 1.05rem;
+    }
+
+    .progress-panel p {
+      margin: 8px 0 0;
+      color: var(--muted);
+      font-size: 0.92rem;
+      line-height: 1.45;
+    }
+
+    .progress-track {
+      margin-top: 16px;
+      width: 100%;
+      height: 12px;
+      overflow: hidden;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.08);
+    }
+
+    .progress-fill {
+      height: 100%;
+      width: 0%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, var(--accent), var(--accent-strong));
+      transition: width 180ms ease;
+    }
+
+    .progress-fill.indeterminate {
+      width: 42%;
+      animation: import-progress-slide 1.15s ease-in-out infinite;
+    }
+
+    .progress-meta {
+      margin-top: 10px;
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      color: var(--muted);
+      font-size: 0.84rem;
+    }
+
+    @keyframes import-progress-slide {
+      0% {
+        transform: translateX(-110%);
+      }
+      100% {
+        transform: translateX(260%);
+      }
+    }
+
     @media (max-width: 860px) {
       .app-shell {
         grid-template-columns: 1fr;
@@ -1138,6 +1216,20 @@
     </div>
   </div>
 
+  <div class="progress-overlay" id="progressOverlay" aria-hidden="true">
+    <div class="progress-panel" role="status" aria-live="polite">
+      <h3 id="progressTitle">Import laeuft</h3>
+      <p id="progressDetail">Bitte kurz warten.</p>
+      <div class="progress-track" aria-hidden="true">
+        <div class="progress-fill" id="progressFill"></div>
+      </div>
+      <div class="progress-meta">
+        <span id="progressStep">Vorbereitung</span>
+        <span id="progressPercent">0%</span>
+      </div>
+    </div>
+  </div>
+
   <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
   <script>
     const storageKey = 'rp-archiv-v1';
@@ -1215,6 +1307,12 @@
       mediaOverlayImage: document.getElementById('mediaOverlayImage'),
       closeMediaOverlayBtn: document.getElementById('closeMediaOverlayBtn'),
       scrollLatestBtn: document.getElementById('scrollLatestBtn'),
+      progressOverlay: document.getElementById('progressOverlay'),
+      progressTitle: document.getElementById('progressTitle'),
+      progressDetail: document.getElementById('progressDetail'),
+      progressFill: document.getElementById('progressFill'),
+      progressStep: document.getElementById('progressStep'),
+      progressPercent: document.getElementById('progressPercent'),
     };
 
     boot().catch(console.error);
@@ -1373,21 +1471,43 @@
       if (!file) return;
 
       try {
+        showProgress({
+          title: 'Import laeuft',
+          detail: `${file.name} wird vorbereitet...`,
+          step: 'Start',
+          percent: 4,
+        });
         if (/\.zip$/i.test(file.name)) {
           await importFromZip(file);
         } else {
           await importFromTxt(file);
         }
+        updateProgress({
+          detail: `${file.name} wurde importiert.`,
+          step: 'Abgeschlossen',
+          percent: 100,
+        });
       } catch (error) {
         console.error(error);
         alert(`Import fehlgeschlagen: ${error.message}`);
       } finally {
+        hideProgress();
         ui.chatFileInput.value = '';
       }
     }
 
     async function importFromTxt(file) {
+      updateProgress({
+        detail: `${file.name} wird gelesen...`,
+        step: 'Datei lesen',
+        percent: 18,
+      });
       const content = await file.text();
+      updateProgress({
+        detail: 'Nachrichten werden erkannt...',
+        step: 'Nachrichten parsen',
+        percent: 48,
+      });
       const messages = parseWhatsAppExport(content, {});
       if (messages.length === 0) {
         alert('Keine Nachrichten erkannt. Bitte WhatsApp .txt oder .zip Export nutzen.');
@@ -1404,13 +1524,28 @@
         messages,
       };
 
+      updateProgress({
+        detail: 'Chat wird lokal gespeichert...',
+        step: 'Speichern',
+        percent: 82,
+      });
       await addChatToState(chat);
     }
 
     async function importFromZip(file) {
       const chatId = crypto.randomUUID();
-      const bundle = await readWhatsAppZipBundle(file);
-      const mediaIndex = await persistMediaBundleForChat(chatId, bundle.mediaBundle);
+      updateProgress({
+        detail: `${file.name} wird entpackt...`,
+        step: 'ZIP lesen',
+        indeterminate: true,
+      });
+      const bundle = await readWhatsAppZipBundle(file, createProgressReporter(8, 44));
+      updateProgress({
+        detail: 'Nachrichten werden aus der ZIP gelesen...',
+        step: 'Nachrichten parsen',
+        percent: 56,
+      });
+      const mediaIndex = await persistMediaBundleForChat(chatId, bundle.mediaBundle, null, createProgressReporter(56, 84, 'Medien speichern'));
       const messages = parseWhatsAppExport(bundle.content, mediaIndex);
 
       if (messages.length === 0) {
@@ -1428,6 +1563,11 @@
       };
 
       state.sessionMediaByChat[chat.id] = mediaIndex;
+      updateProgress({
+        detail: 'Chat wird lokal gespeichert...',
+        step: 'Speichern',
+        percent: 92,
+      });
       await addChatToState(chat);
     }
 
@@ -1436,6 +1576,12 @@
       if (!file) return;
 
       try {
+        showProgress({
+          title: 'Medien werden ergänzt',
+          detail: `${file.name} wird vorbereitet...`,
+          step: 'Start',
+          percent: 4,
+        });
         if (!/\.zip$/i.test(file.name)) {
           throw new Error('Zum Medien-Abgleich bitte einen WhatsApp ZIP-Export mit Medien auswaehlen.');
         }
@@ -1444,34 +1590,55 @@
           throw new Error('Bitte zuerst den Chat auswaehlen, dem die Medien hinzugefuegt werden sollen.');
         }
         await mergeMediaFromZipIntoSelectedChat(file, chat);
+        updateProgress({
+          detail: 'Die Medien wurden erfolgreich ergänzt.',
+          step: 'Abgeschlossen',
+          percent: 100,
+        });
       } catch (error) {
         console.error(error);
         alert(`Medien konnten nicht ergänzt werden: ${error.message}`);
       } finally {
+        hideProgress();
         ui.mergeMediaInput.value = '';
       }
     }
 
     async function mergeMediaFromZipIntoSelectedChat(file, chat) {
-      const bundle = await readWhatsAppZipBundle(file);
+      updateProgress({
+        detail: `${file.name} wird entpackt...`,
+        step: 'ZIP lesen',
+        indeterminate: true,
+      });
+      const bundle = await readWhatsAppZipBundle(file, createProgressReporter(6, 38));
+      updateProgress({
+        detail: 'Bildnachrichten werden abgeglichen...',
+        step: 'Zuordnen',
+        percent: 52,
+      });
       const importedMessages = parseWhatsAppExport(bundle.content, bundle.mediaBundle.mediaIndex);
       if (importedMessages.length === 0) {
         bundle.mediaBundle.revokeAll();
         throw new Error('Im Zusatz-Export wurden keine Nachrichten erkannt.');
       }
 
-      const result = await mergeImportedMediaIntoChat(chat, importedMessages, bundle.mediaBundle);
+      const result = await mergeImportedMediaIntoChat(chat, importedMessages, bundle.mediaBundle, createProgressReporter(52, 86, 'Medien speichern'));
       if (result.mergedCount === 0) {
         throw new Error('Es konnten keine passenden Bildnachrichten zum bestehenden Chat zugeordnet werden.');
       }
 
       chat.updatedAt = new Date().toISOString();
+      updateProgress({
+        detail: 'Aktualisierter Chat wird lokal gespeichert...',
+        step: 'Speichern',
+        percent: 92,
+      });
       await persistAppState();
       renderSelectedChat();
       alert(`${result.mergedCount} Bild${result.mergedCount === 1 ? '' : 'er'} ergänzt. ${result.enrichedMessages} Nachricht${result.enrichedMessages === 1 ? '' : 'en'} wurden aktualisiert.`);
     }
 
-    async function readWhatsAppZipBundle(file) {
+    async function readWhatsAppZipBundle(file, reportProgress = null) {
       if (!window.JSZip) {
         throw new Error('JSZip nicht geladen. Bitte Internetzugang fuer CDN pruefen.');
       }
@@ -1486,7 +1653,7 @@
 
       return {
         content: await textEntry.async('string'),
-        mediaBundle: await extractImageMediaBundle(zip, files),
+        mediaBundle: await extractImageMediaBundle(zip, files, reportProgress),
       };
     }
 
@@ -1508,16 +1675,15 @@
       return preferred || textFiles[0];
     }
 
-    async function extractImageMediaBundle(zip, files) {
+    async function extractImageMediaBundle(zip, files, reportProgress = null) {
       const mediaIndex = {};
       const mediaBlobs = {};
       const createdUrlsByKey = {};
+      const imageEntries = files.filter((entry) => isImageFile(entry.name) && !entry.name.startsWith('__MACOSX/'));
+      const totalImages = imageEntries.length;
+      let processedImages = 0;
 
-      for (const entry of files) {
-        if (!isImageFile(entry.name) || entry.name.startsWith('__MACOSX/')) {
-          continue;
-        }
-
+      for (const entry of imageEntries) {
         const blob = await zip.file(entry.name).async('blob');
         const url = URL.createObjectURL(blob);
         const normalizedPath = normalizeMediaKey(entry.name);
@@ -1529,6 +1695,8 @@
         mediaBlobs[normalizedBase] = blob;
         createdUrlsByKey[normalizedPath] = url;
         createdUrlsByKey[normalizedBase] = url;
+        processedImages += 1;
+        reportProgress?.(processedImages, totalImages, totalImages === 1 ? '1 Bild vorbereitet' : `${processedImages}/${totalImages} Bilder vorbereitet`);
       }
 
       return {
@@ -1554,16 +1722,22 @@
       };
     }
 
-    async function persistMediaBundleForChat(chatId, mediaBundle, keyFilter = null) {
+    async function persistMediaBundleForChat(chatId, mediaBundle, keyFilter = null, reportProgress = null) {
       const nextIndex = {};
       const allowedKeys = keyFilter ? new Set(Array.from(keyFilter, (key) => normalizeMediaKey(key))) : null;
-      for (const [mediaKey, blob] of Object.entries(mediaBundle.mediaBlobs || {})) {
+      const entries = Object.entries(mediaBundle.mediaBlobs || {})
+        .filter(([mediaKey]) => {
+          const normalizedKey = normalizeMediaKey(mediaKey);
+          return !allowedKeys || allowedKeys.has(normalizedKey);
+        });
+      const totalEntries = entries.length;
+      let processedEntries = 0;
+      for (const [mediaKey, blob] of entries) {
         const normalizedKey = normalizeMediaKey(mediaKey);
-        if (allowedKeys && !allowedKeys.has(normalizedKey)) {
-          continue;
-        }
         await persistMediaBlob(chatId, normalizedKey, blob);
         nextIndex[normalizedKey] = mediaBundle.mediaIndex[normalizedKey] || URL.createObjectURL(blob);
+        processedEntries += 1;
+        reportProgress?.(processedEntries, totalEntries, totalEntries === 0 ? 'Keine Medien' : `${processedEntries}/${totalEntries} Medien gespeichert`);
       }
       return nextIndex;
     }
@@ -3076,7 +3250,18 @@
       if (!file) return;
 
       try {
+        showProgress({
+          title: 'Archiv wird importiert',
+          detail: `${file.name} wird gelesen...`,
+          step: 'Datei lesen',
+          percent: 8,
+        });
         const raw = JSON.parse(await file.text());
+        updateProgress({
+          detail: 'Archivdaten werden geprueft...',
+          step: 'Pruefen',
+          percent: 22,
+        });
         const archive = validateArchivePayload(raw);
         const chats = normalizeChats(archive.chats);
         const markerByChat = archive.markerByChat;
@@ -3087,7 +3272,19 @@
           cleanupSessionMedia(chatId);
         }
 
+        updateProgress({
+          detail: 'Vorhandene lokale Mediendaten werden ersetzt...',
+          step: 'Zuruecksetzen',
+          percent: 36,
+        });
         await clearPersistedMedia();
+        updateProgress({
+          detail: 'Mediendateien werden lokal gespeichert...',
+          step: 'Medien importieren',
+          percent: mediaAssets.length === 0 ? 78 : 42,
+        });
+        const reportArchiveMediaProgress = createProgressReporter(42, 78, 'Medien importieren');
+        let importedAssets = 0;
         for (const asset of mediaAssets) {
           const response = await fetch(asset.dataUrl);
           if (!response.ok) {
@@ -3095,12 +3292,19 @@
           }
           const blob = await response.blob();
           await persistMediaBlob(asset.chatId, asset.mediaKey, blob);
+          importedAssets += 1;
+          reportArchiveMediaProgress(importedAssets, mediaAssets.length, `${importedAssets}/${mediaAssets.length} Mediendateien importiert`);
         }
 
         state.chats = chats;
         state.markerByChat = markerByChat;
         state.globalDesign = globalDesign;
         state.selectedChatId = chats[0]?.id || null;
+        updateProgress({
+          detail: 'Archivzustand wird lokal gespeichert...',
+          step: 'Speichern',
+          percent: 90,
+        });
         await persistAppState();
         renderChatList();
 
@@ -3109,12 +3313,85 @@
         } else {
           renderSelectedChat();
         }
+        updateProgress({
+          detail: `${file.name} wurde importiert.`,
+          step: 'Abgeschlossen',
+          percent: 100,
+        });
       } catch (error) {
         console.error(error);
         alert(`Archiv-Import fehlgeschlagen: ${error.message}`);
       } finally {
+        hideProgress();
         ui.archiveFileInput.value = '';
       }
+    }
+
+    function clampPercent(value) {
+      return Math.max(0, Math.min(100, Math.round(Number(value) || 0)));
+    }
+
+    function showProgress({ title = 'Import laeuft', detail = 'Bitte kurz warten.', step = 'Start', percent = 0, indeterminate = false } = {}) {
+      ui.progressTitle.textContent = title;
+      ui.progressOverlay.classList.add('open');
+      ui.progressOverlay.setAttribute('aria-hidden', 'false');
+      updateProgress({ detail, step, percent, indeterminate });
+    }
+
+    function updateProgress({ detail, step, percent, indeterminate = false } = {}) {
+      if (typeof detail === 'string') {
+        ui.progressDetail.textContent = detail;
+      }
+      if (typeof step === 'string') {
+        ui.progressStep.textContent = step;
+      }
+
+      if (indeterminate) {
+        ui.progressFill.classList.add('indeterminate');
+        ui.progressFill.style.width = '';
+        ui.progressPercent.textContent = '...';
+        return;
+      }
+
+      const safePercent = clampPercent(percent);
+      ui.progressFill.classList.remove('indeterminate');
+      ui.progressFill.style.width = `${safePercent}%`;
+      ui.progressPercent.textContent = `${safePercent}%`;
+    }
+
+    function hideProgress() {
+      ui.progressOverlay.classList.remove('open');
+      ui.progressOverlay.setAttribute('aria-hidden', 'true');
+      ui.progressFill.classList.remove('indeterminate');
+      ui.progressFill.style.width = '0%';
+      ui.progressTitle.textContent = 'Import laeuft';
+      ui.progressDetail.textContent = 'Bitte kurz warten.';
+      ui.progressStep.textContent = 'Start';
+      ui.progressPercent.textContent = '0%';
+    }
+
+    function createProgressReporter(startPercent, endPercent, stepLabel = 'Import') {
+      const safeStart = clampPercent(startPercent);
+      const safeEnd = clampPercent(endPercent);
+      const span = Math.max(0, safeEnd - safeStart);
+
+      return (current, total, detail = '') => {
+        if (!Number.isFinite(total) || total <= 0) {
+          updateProgress({
+            step: stepLabel,
+            detail: detail || 'Bitte kurz warten...',
+            percent: safeEnd,
+          });
+          return;
+        }
+
+        const ratio = Math.max(0, Math.min(1, current / total));
+        updateProgress({
+          step: stepLabel,
+          detail: detail || `${current}/${total}`,
+          percent: safeStart + (span * ratio),
+        });
+      };
     }
 
     function validateChatsForPersistence(chats) {
