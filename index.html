@@ -1477,6 +1477,7 @@
           step: 'Start',
           percent: 4,
         });
+        await flushUiFrame();
         if (/\.zip$/i.test(file.name)) {
           await importFromZip(file);
         } else {
@@ -1502,12 +1503,14 @@
         step: 'Datei lesen',
         percent: 18,
       });
+      await flushUiFrame();
       const content = await file.text();
       updateProgress({
         detail: 'Nachrichten werden erkannt...',
         step: 'Nachrichten parsen',
         percent: 48,
       });
+      await flushUiFrame();
       const messages = parseWhatsAppExport(content, {});
       if (messages.length === 0) {
         alert('Keine Nachrichten erkannt. Bitte WhatsApp .txt oder .zip Export nutzen.');
@@ -1539,12 +1542,14 @@
         step: 'ZIP lesen',
         indeterminate: true,
       });
+      await flushUiFrame();
       const bundle = await readWhatsAppZipBundle(file, createProgressReporter(8, 44));
       updateProgress({
         detail: 'Nachrichten werden aus der ZIP gelesen...',
         step: 'Nachrichten parsen',
         percent: 56,
       });
+      await flushUiFrame();
       const mediaIndex = await persistMediaBundleForChat(chatId, bundle.mediaBundle, null, createProgressReporter(56, 84, 'Medien speichern'));
       const messages = parseWhatsAppExport(bundle.content, mediaIndex);
 
@@ -1582,6 +1587,7 @@
           step: 'Start',
           percent: 4,
         });
+        await flushUiFrame();
         if (!/\.zip$/i.test(file.name)) {
           throw new Error('Zum Medien-Abgleich bitte einen WhatsApp ZIP-Export mit Medien auswaehlen.');
         }
@@ -1610,12 +1616,14 @@
         step: 'ZIP lesen',
         indeterminate: true,
       });
+      await flushUiFrame();
       const bundle = await readWhatsAppZipBundle(file, createProgressReporter(6, 38));
       updateProgress({
         detail: 'Bildnachrichten werden abgeglichen...',
         step: 'Zuordnen',
         percent: 52,
       });
+      await flushUiFrame();
       const importedMessages = parseWhatsAppExport(bundle.content, bundle.mediaBundle.mediaIndex);
       if (importedMessages.length === 0) {
         bundle.mediaBundle.revokeAll();
@@ -3256,12 +3264,14 @@
           step: 'Datei lesen',
           percent: 8,
         });
+        await flushUiFrame();
         const raw = JSON.parse(await file.text());
         updateProgress({
           detail: 'Archivdaten werden geprueft...',
           step: 'Pruefen',
           percent: 22,
         });
+        await flushUiFrame();
         const archive = validateArchivePayload(raw);
         const chats = normalizeChats(archive.chats);
         const markerByChat = archive.markerByChat;
@@ -3277,12 +3287,14 @@
           step: 'Zuruecksetzen',
           percent: 36,
         });
+        await flushUiFrame();
         await clearPersistedMedia();
         updateProgress({
           detail: 'Mediendateien werden lokal gespeichert...',
           step: 'Medien importieren',
           percent: mediaAssets.length === 0 ? 78 : 42,
         });
+        await flushUiFrame();
         const reportArchiveMediaProgress = createProgressReporter(42, 78, 'Medien importieren');
         let importedAssets = 0;
         for (const asset of mediaAssets) {
@@ -3392,6 +3404,14 @@
           percent: safeStart + (span * ratio),
         });
       };
+    }
+
+    function flushUiFrame() {
+      return new Promise((resolve) => {
+        requestAnimationFrame(() => {
+          requestAnimationFrame(resolve);
+        });
+      });
     }
 
     function validateChatsForPersistence(chats) {
