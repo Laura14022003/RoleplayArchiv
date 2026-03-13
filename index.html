@@ -313,6 +313,7 @@
       position: sticky;
       top: 0;
       z-index: 3;
+      isolation: isolate;
       display: flex;
       justify-content: space-between;
       gap: 8px;
@@ -363,6 +364,25 @@
       flex: 1 1 auto;
     }
 
+    .chat-description-panel {
+      margin-top: 10px;
+      padding: 10px 12px;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 14px;
+      background: rgba(255, 255, 255, 0.03);
+    }
+
+    .chat-description-panel[hidden] {
+      display: none;
+    }
+
+    .chat-description-panel p {
+      margin: 0;
+      color: #d8e3df;
+      line-height: 1.45;
+      white-space: pre-wrap;
+    }
+
     .chat-tools {
       margin-top: 10px;
       display: grid;
@@ -385,17 +405,23 @@
     }
 
     .search-input:focus-visible,
-    .view-select:focus-visible,
-    .chat-header-avatar:focus-visible,
-    .chat-open:focus-visible,
-    .chat-delete:focus-visible,
-    .scroll-latest-btn:focus-visible {
+      .view-select:focus-visible,
+      .chat-header-avatar:focus-visible,
+      .chat-open:focus-visible,
+      .chat-delete:focus-visible,
+      .scroll-latest-btn:focus-visible {
       outline: 2px solid rgba(57, 181, 159, 0.45);
       outline-offset: 2px;
     }
 
     .search-input::placeholder {
       color: #7f8c88;
+    }
+
+    .description-input {
+      width: 100%;
+      min-height: 88px;
+      resize: vertical;
     }
 
     .filter-chip {
@@ -439,7 +465,8 @@
       font-size: 0.84rem;
     }
 
-    .chat-header h2 {
+    #chatTitle {
+      display: block;
       margin: 0;
       font-size: 1.08rem;
       font-weight: 800;
@@ -449,6 +476,10 @@
       margin: 2px 0 0;
       color: var(--muted);
       font-size: 0.86rem;
+    }
+
+    #chatMeta:empty {
+      display: none;
     }
 
     .chat-actions {
@@ -877,16 +908,21 @@
       .sidebar {
         position: fixed;
         inset: 0 12% 0 0;
-        transform: translateX(-102%);
+        transform: translateX(calc(-100% - 24px));
         transition: transform 180ms ease;
         z-index: 8;
         box-shadow: var(--shadow);
         border-right: 1px solid rgba(255, 255, 255, 0.08);
         overflow-y: auto;
+        visibility: hidden;
+        pointer-events: none;
+        -webkit-overflow-scrolling: touch;
       }
 
       .sidebar.open {
         transform: translateX(0);
+        visibility: visible;
+        pointer-events: auto;
       }
 
       .sidebar-scrim {
@@ -929,6 +965,8 @@
         display: grid;
         grid-template-columns: repeat(2, minmax(0, 1fr));
         align-items: stretch;
+        position: relative;
+        z-index: 1;
       }
 
       .chat-tools {
@@ -973,10 +1011,14 @@
 
       #toggleSidebarBtn {
         display: inline-flex;
+        position: relative;
+        z-index: 2;
       }
 
       #toggleHeaderControlsBtn {
         display: inline-flex;
+        position: relative;
+        z-index: 2;
       }
 
       .messages {
@@ -1030,8 +1072,11 @@
           <div class="chat-title-row">
             <button class="chat-header-avatar" id="chatHeaderAvatar" type="button" aria-label="Chat-Icon vergr&ouml;&szlig;ern"></button>
             <div class="chat-title-copy">
-              <h2 id="chatTitle">Kein Chat ausgew&auml;hlt</h2>
+              <span id="chatTitle">Kein Chat ausgew&auml;hlt</span>
               <p id="chatMeta">Importiere einen WhatsApp Export (.txt oder .zip)</p>
+              <div class="chat-description-panel" id="chatDescriptionPanel" hidden>
+                <p id="chatDescriptionText"></p>
+              </div>
             </div>
           </div>
           <div class="chat-tools">
@@ -1102,6 +1147,8 @@
     const appStateRecordId = 'state';
     const mediaDbVersion = 2;
     const maxBackgroundImageBytes = 4 * 1024 * 1024;
+    const defaultSelfDisplayName = 'Laura';
+    const defaultOtherDisplayName = 'Jenny /OneAndOnly ❤️🖤 🤟';
     const defaultGlobalDesign = {
       senderColors: {},
       viewSender: '',
@@ -1140,6 +1187,8 @@
       chatHeaderAvatar: document.getElementById('chatHeaderAvatar'),
       chatTitle: document.getElementById('chatTitle'),
       chatMeta: document.getElementById('chatMeta'),
+      chatDescriptionPanel: document.getElementById('chatDescriptionPanel'),
+      chatDescriptionText: document.getElementById('chatDescriptionText'),
       messageSearchInput: document.getElementById('messageSearchInput'),
       prevSearchMatchBtn: document.getElementById('prevSearchMatchBtn'),
       nextSearchMatchBtn: document.getElementById('nextSearchMatchBtn'),
@@ -1230,13 +1279,13 @@
       ui.nextSearchMatchBtn.addEventListener('click', () => {
         moveSearchMatch(1);
       });
-      ui.toggleSidebarBtn.addEventListener('click', () => {
+      bindTap(ui.toggleSidebarBtn, () => {
         toggleSidebarPanel();
       });
-      ui.toggleHeaderControlsBtn.addEventListener('click', () => {
+      bindTap(ui.toggleHeaderControlsBtn, () => {
         toggleHeaderControls();
       });
-      ui.sidebarScrim.addEventListener('click', () => {
+      bindTap(ui.sidebarScrim, () => {
         closeSidebarPanel();
       });
       ui.closeMediaOverlayBtn.addEventListener('click', closeMediaOverlay);
@@ -1253,6 +1302,23 @@
         if (event.key === 'Escape' && ui.mediaOverlay.classList.contains('open')) {
           closeMediaOverlay();
         }
+      });
+    }
+
+    function bindTap(element, handler) {
+      if (!element) return;
+
+      let lastTouchAt = 0;
+
+      element.addEventListener('touchend', (event) => {
+        lastTouchAt = Date.now();
+        event.preventDefault();
+        handler(event);
+      }, { passive: false });
+
+      element.addEventListener('click', (event) => {
+        if (Date.now() - lastTouchAt < 700) return;
+        handler(event);
       });
     }
 
@@ -1278,6 +1344,16 @@
       header.classList.remove('show-controls');
       ui.toggleHeaderControlsBtn.setAttribute('aria-expanded', 'false');
       ui.toggleHeaderControlsBtn.textContent = 'Optionen';
+    }
+
+    function normalizeChatDescription(value) {
+      return typeof value === 'string' ? value.trim() : '';
+    }
+
+    function syncChatDescription(chat) {
+      const description = normalizeChatDescription(chat?.description);
+      ui.chatDescriptionText.textContent = description;
+      ui.chatDescriptionPanel.hidden = !description;
     }
 
     function toggleHeaderControls(force) {
@@ -1322,6 +1398,7 @@
       const chat = {
         id: crypto.randomUUID(),
         title: sanitizeChatTitle(file.name.replace(/\.txt$/i, '')),
+        description: '',
         createdAt: now,
         updatedAt: now,
         messages,
@@ -1344,6 +1421,7 @@
       const chat = {
         id: chatId,
         title: sanitizeChatTitle(file.name.replace(/\.zip$/i, '')),
+        description: '',
         createdAt: now,
         updatedAt: now,
         messages,
@@ -1670,6 +1748,36 @@
       return senders.includes(state.globalDesign.viewSender) ? state.globalDesign.viewSender : senders[0];
     }
 
+    function buildPeopleEditorNameMap(chat) {
+      const ownSender = getPreferredViewSender(chat);
+      const nameMap = new Map();
+
+      for (const sender of getAllSenders(state.chats)) {
+        nameMap.set(sender, sender === ownSender ? defaultSelfDisplayName : defaultOtherDisplayName);
+      }
+
+      return nameMap;
+    }
+
+    function buildPeopleEditorGroups(chat) {
+      const suggestedNames = buildPeopleEditorNameMap(chat);
+      const groups = new Map();
+
+      for (const sender of getAllSenders(state.chats)) {
+        const targetName = suggestedNames.get(sender) || sender;
+        if (!groups.has(targetName)) {
+          groups.set(targetName, {
+            suggestedName: targetName,
+            originalSenders: [],
+          });
+        }
+
+        groups.get(targetName).originalSenders.push(sender);
+      }
+
+      return Array.from(groups.values());
+    }
+
     function normalizeGlobalDesign(globalDesign, chats) {
       const senders = getAllSenders(chats);
       return {
@@ -1709,6 +1817,7 @@
       return chats.map((chat) => ({
         ...chat,
         title: sanitizeChatTitle(chat?.title) || 'Unbenannter Chat',
+        description: normalizeChatDescription(chat?.description),
         messages: Array.isArray(chat?.messages) ? chat.messages.map(normalizeStoredMessage) : [],
         chatIcon: normalizeChatIcon(chat?.chatIcon),
       }));
@@ -1906,8 +2015,6 @@
 
     function buildChatMeta(chat, visibleCount) {
       const details = [];
-      const totalCount = chat.messages.length;
-      details.push(`${totalCount} Nachrichten`);
       if (state.filters.searchTerm) {
         details.push(`${visibleCount} sichtbar`);
       }
@@ -2011,7 +2118,9 @@
         const title = document.createElement('h3');
         title.textContent = chat.title;
         const meta = document.createElement('p');
-        meta.textContent = markerSeq ? `${chat.messages.length} Nachrichten • Marker bei #${markerSeq}` : `${chat.messages.length} Nachrichten`;
+        const description = normalizeChatDescription(chat.description);
+        meta.textContent = description || (markerSeq ? `Marker bei #${markerSeq}` : '');
+        meta.title = description && markerSeq ? `${description} • Marker bei #${markerSeq}` : '';
         textWrap.appendChild(title);
         textWrap.appendChild(meta);
         content.appendChild(avatar);
@@ -2109,7 +2218,7 @@
       const chat = getSelectedChat();
       if (!chat) return;
 
-      const senders = getAllSenders(state.chats);
+      const peopleGroups = buildPeopleEditorGroups(chat);
       ui.peopleList.innerHTML = '';
 
       const chatStyleRow = document.createElement('div');
@@ -2242,25 +2351,39 @@
       ui.peopleList.appendChild(chatIconRow);
       ui.peopleList.appendChild(iconPreview);
 
-      for (const sender of senders) {
+      const descriptionRow = document.createElement('div');
+      descriptionRow.className = 'chat-style-row';
+      const descriptionLabel = document.createElement('div');
+      descriptionLabel.className = 'chat-style-label';
+      descriptionLabel.textContent = 'Chat-Beschreibung';
+      const descriptionInput = document.createElement('textarea');
+      descriptionInput.className = 'search-input description-input';
+      descriptionInput.id = 'chatDescriptionInput';
+      descriptionInput.placeholder = 'Kurze Beschreibung fuer diesen Chat';
+      descriptionInput.value = normalizeChatDescription(chat.description);
+      descriptionRow.appendChild(descriptionLabel);
+      descriptionRow.appendChild(descriptionInput);
+      ui.peopleList.appendChild(descriptionRow);
+
+      for (const group of peopleGroups) {
         const row = document.createElement('div');
         row.className = 'person-row';
 
         const origin = document.createElement('div');
         origin.className = 'person-origin';
-        origin.textContent = sender;
+        origin.textContent = group.suggestedName;
+        origin.title = group.originalSenders.join(', ');
 
         const input = document.createElement('input');
         input.className = 'person-input';
         input.type = 'text';
-        input.value = sender;
-        input.dataset.originalSender = sender;
+        input.value = group.suggestedName;
+        input.dataset.originalSenders = JSON.stringify(group.originalSenders);
 
         const colorInput = document.createElement('input');
         colorInput.className = 'person-color';
         colorInput.type = 'color';
-        colorInput.value = getSenderColor(chat, sender) || '#7fd0a0';
-        colorInput.dataset.originalSender = sender;
+        colorInput.value = getSenderColor(chat, group.originalSenders[0]) || '#7fd0a0';
 
         row.appendChild(origin);
         row.appendChild(input);
@@ -2299,30 +2422,28 @@
       const clearImageBtn = ui.peopleList.querySelector('#clearChatBackgroundImageBtn');
       const chatIconInput = ui.peopleList.querySelector('#chatIconInput');
       const clearIconBtn = ui.peopleList.querySelector('#clearChatIconBtn');
+      const chatDescriptionInput = ui.peopleList.querySelector('#chatDescriptionInput');
 
       for (const row of rows) {
         const nameInput = row.querySelector('.person-input');
         const colorInput = row.querySelector('.person-color');
-        const originalSender = nameInput?.dataset.originalSender || '';
+        const originalSenders = JSON.parse(nameInput?.dataset.originalSenders || '[]');
+        const label = originalSenders.join(', ');
         const cleaned = nameInput?.value.trim() || '';
 
         if (!cleaned) {
-          alert(`Bitte einen gueltigen Namen fuer "${originalSender}" eintragen.`);
+          alert(`Bitte einen gueltigen Namen fuer "${label}" eintragen.`);
           nameInput?.focus();
           return;
         }
 
-        if (cleaned !== originalSender) {
-          renameMap.set(originalSender, cleaned);
+        for (const originalSender of originalSenders) {
+          if (cleaned !== originalSender) {
+            renameMap.set(originalSender, cleaned);
+          }
         }
 
         nextColors[cleaned] = colorInput?.value || '#7fd0a0';
-      }
-
-      const normalizedNames = rows.map((row) => row.querySelector('.person-input')?.value.trim() || '').filter(Boolean);
-      if (new Set(normalizedNames).size !== normalizedNames.length) {
-        alert('Jeder Personenname muss eindeutig sein.');
-        return;
       }
 
       for (const existingChat of state.chats) {
@@ -2344,6 +2465,7 @@
       } else {
         state.globalDesign.backgroundImage = normalizeChatBackgroundImage(state.globalDesign.backgroundImage);
       }
+      chat.description = normalizeChatDescription(chatDescriptionInput?.value);
       if (clearIconBtn?.dataset.clearIcon === 'true') {
         chat.chatIcon = '';
       } else if (chatIconInput?.files?.[0]) {
@@ -2424,6 +2546,7 @@
         syncChatHeaderAvatar(null);
         ui.chatTitle.textContent = 'Kein Chat ausgew\u00e4hlt';
         ui.chatMeta.textContent = 'Importiere einen WhatsApp Export (.txt oder .zip)';
+        syncChatDescription(null);
         ui.jumpMarkerBtn.disabled = true;
         ui.mergeMediaInput.disabled = true;
         ui.mergeMediaLabel.classList.add('disabled');
@@ -2450,6 +2573,7 @@
       updateSearchNavigation(filteredMessages.length);
       ui.chatTitle.textContent = chat.title;
       ui.chatMeta.textContent = buildChatMeta(chat, filteredMessages.length);
+      syncChatDescription(chat);
       ui.jumpMarkerBtn.disabled = !state.markerByChat[chat.id];
 
       const marker = state.markerByChat[chat.id];
@@ -3045,6 +3169,7 @@
       return {
         ...chat,
         title: sanitizeChatTitle(chat.title) || 'Unbenannter Chat',
+        description: normalizeChatDescription(chat.description),
         backgroundColor: normalizeChatBackground(chat.backgroundColor),
         backgroundImage: normalizeChatBackgroundImage(chat.backgroundImage),
         chatIcon: normalizeChatIcon(chat.chatIcon),
