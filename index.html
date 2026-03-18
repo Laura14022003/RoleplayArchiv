@@ -156,9 +156,20 @@
       display: grid;
       gap: 10px;
       padding: 8px 0 4px;
+    }
+
+    .sidebar-search {
       position: sticky;
       top: 0;
       z-index: 1;
+      padding-bottom: 2px;
+      background: linear-gradient(180deg, rgba(248, 240, 232, 0.98), rgba(248, 240, 232, 0.86) 74%, rgba(248, 240, 232, 0));
+    }
+
+    .sidebar-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
     }
 
     .btn {
@@ -1122,6 +1133,10 @@
         padding: 6px 0 4px;
       }
 
+      .sidebar-search {
+        top: -1px;
+      }
+
       .chat-list {
         gap: 12px;
         padding-right: 0;
@@ -1221,8 +1236,11 @@
       </div>
 
       <div class="sidebar-utility">
-        <input id="chatListSearchInput" class="search-input" type="search" placeholder="Chats schnell finden" />
-        <div class="toolbar">
+        <div class="sidebar-search">
+          <input id="chatListSearchInput" class="search-input" type="search" placeholder="Chats schnell finden" />
+        </div>
+        <div class="sidebar-actions">
+          <div class="toolbar">
           <label class="btn file-btn">
             Chat importieren
             <input id="chatFileInput" type="file" accept=".txt,.zip" />
@@ -1232,6 +1250,7 @@
             <input id="archiveFileInput" type="file" accept=".json" />
           </label>
           <button class="btn secondary" id="exportArchiveBtn" type="button">Archiv exportieren</button>
+          </div>
         </div>
       </div>
 
