@@ -152,16 +152,11 @@
       flex-wrap: wrap;
     }
 
-    .sidebar-utility {
-      display: grid;
-      gap: 10px;
-      padding: 8px 0 4px;
-    }
-
     .sidebar-search {
       position: sticky;
       top: 0;
       z-index: 1;
+      margin: 8px 0 6px;
       padding-bottom: 2px;
       background: linear-gradient(180deg, rgba(248, 240, 232, 0.98), rgba(248, 240, 232, 0.86) 74%, rgba(248, 240, 232, 0));
     }
@@ -1135,6 +1130,7 @@
 
       .sidebar-search {
         top: -1px;
+        margin-top: 6px;
       }
 
       .chat-list {
@@ -1235,10 +1231,11 @@
         <p>WhatsApp-Chats zum Nachlesen</p>
       </div>
 
+      <div class="sidebar-search">
+        <input id="chatListSearchInput" class="search-input" type="search" placeholder="Chats schnell finden" />
+      </div>
+
       <div class="sidebar-utility">
-        <div class="sidebar-search">
-          <input id="chatListSearchInput" class="search-input" type="search" placeholder="Chats schnell finden" />
-        </div>
         <div class="sidebar-actions">
           <div class="toolbar">
           <label class="btn file-btn">
